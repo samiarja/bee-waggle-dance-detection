@@ -1,11 +1,11 @@
 clear
-addpath("/media/sami/Samsung_T5/MPhil/Code/DeepGreen/greenhouseCode")
+addpath("../DeepGreen/greenhouseCode")
 
 %%%%%%%%%%%%%%%% LOAD VIDEO
-videoName = "20210803t1727d200m.MP4";
-videoFileName = "./data/" + videoName;
+videoName = "20210803t1727d200m";
+videoFileName = "./data/" + videoName + ".MP4";
 limits.rowStart    = 401;    limits.rowEnd      = 1000;    limits.colStart    = 201;    limits.colEnd      = 1700;
-v0 = VideoReader(videoFileName);
+v0 = VideoReader(videoName + ".MP4");
 disp("Loading data...")
 
 %%%%%%%%%%%%%%%% LOAD TEMPLATE
@@ -22,7 +22,7 @@ FULL_IMAGE                  = 0;
 iWaggleInh                  = 0;
 iWaggleEvent                = 0;
 SHOW                        = 0; %rand>5;
-convMapThreshold            = 100;
+convMapThreshold            = 20;
 nEventsForWaggleThreshold   = 10;
 nDel                        = 18;
 framesPerSegment            = 500;
@@ -57,7 +57,7 @@ for iSegment = 1:5
     %endFrame = nFrameTotal;%
     endFrame = min(iSegment*framesPerSegment,nFrameTotal);%500;
     
-    nFrame =  endFrame -   startFrame ;
+    nFrame =  endFrame - startFrame;
     
     avgFrameDepth = 6;
     iFrameWithWaggle = 0;waggleStats = {};
@@ -65,7 +65,6 @@ for iSegment = 1:5
         imageWidth  = v0.Width;
         imageHeight = v0.Height;
     else
-        
         imageWidth  = limits.colEnd - limits.colStart +1;
         imageHeight = limits.rowEnd - limits.rowStart +1;
     end
@@ -89,8 +88,11 @@ for iSegment = 1:5
         if iFrame>1
             dRgbFrameArray(:,:,:,iFrame) = single(frameArray(:,:,:,iFrame)) - single(frameArray(:,:,:,iFrame-1));
             dGreyScaleArray(:,:,iFrame) =     imresize(vecnorm(single(frameArray(:,:,:,iFrame)),2,3) -   vecnorm(single(frameArray(:,:,:,iFrame-1)),2,3),0.5);
+            
         end
     end
+    
+    
     disp("Frame differencing finished...")
     
     disp("Start 3D convolution...")
@@ -103,18 +105,22 @@ for iSegment = 1:5
     waggleFilt1   = exp(-delArray/Tau).*sin(5.75/(2*pi)*(delArray+5.2));
     waggleFilt4d1 = single(reshape(waggleFilt1,[1,1,1,nDel]));
     
-    waggleMap1 = convn(dRgbFrameArray,waggleFilt4d1,'full');
-    waggleMap1 = waggleMap1(:,:,:,1:nFrame);
-    
     waggleFilt2   = exp(-delArray/Tau).*sin(5/(2*pi)*(delArray+5.2));
     waggleFilt4d2 = single(reshape(waggleFilt2,[1,1,1,nDel]));
-    waggleMap2 = convn(dRgbFrameArray,waggleFilt4d2,'full');
-    waggleMap2 = waggleMap2(:,:,:,1:nFrame);
     
     waggleFilt3   =exp(-delArray/Tau).*sin(4/(2*pi)*(delArray+6.5));
     waggleFilt4d3 = single(reshape(waggleFilt3,[1,1,1,nDel]));
+    
+    waggleMap1 = convn(dRgbFrameArray,waggleFilt4d1,'full');
+    waggleMap1 = waggleMap1(:,:,:,1:nFrame);
+    
+    waggleMap2 = convn(dRgbFrameArray,waggleFilt4d2,'full');
+    waggleMap2 = waggleMap2(:,:,:,1:nFrame);
+    
+    
     waggleMap3 = convn(dRgbFrameArray,waggleFilt4d3,'full');
     waggleMap3 = waggleMap3(:,:,:,1:nFrame);
+    
     disp("Finish 3D convolution...")
     
     waggleMapMaxed =  zeros(imageHeight/2,imageWidth/2,nFrame,'single');
@@ -157,6 +163,7 @@ for iSegment = 1:5
         for iTemplate = 1:nTemplate
             waggleConvResult(:,:,iTemplate) = conv2(meanWaggleMapFrame,waggleTemplate25(:,:,iTemplate),'same');
         end
+        
         
         [waggleConvResultMaxedVal, waggleTemplateIdx ]= max(waggleConvResult,[],3);
         
@@ -498,7 +505,142 @@ if SHOW
     end
 end
 
-% save([videoFileName '_tds.mat'],'td','tdWithInh','tdCleaned','tdAugmented','limits','videoFileName')
+save([videoName + '.MP4_tds.mat'],'td','tdWithInh','tdCleaned','tdAugmented','limits','videoFileName')
 
+%% DATA POINT INTERPOLATION
+load("./data/" + videoName + "_labels.mat")
 
+TD          = [];
+timeNow     = 0;
+x_coor      = real(userInputArray(:,1));x_coor(x_coor==0) = NaN;
+y_coor      = -real(1i*userInputArray(:,1));y_coor(y_coor==0) = NaN;
+timeStamp   = 1:numel(userInputArray);
+nEvents     = numel(x_coor);
+timeEnd     = nEvents;
 
+for idx = 1:nEvents
+    timeNow     = timeNow + round(rand*10);
+    TD.x(idx)   = ceil(rand*max(x_coor));
+    TD.y(idx)   = ceil(rand*max(y_coor));
+    TD.p(idx)   = 1;
+    TD.ts(idx)  = timeNow;
+end
+
+TD.ts = TD.ts/TD.ts(end)*timeEnd;
+% figure(453453)
+% subplot(1,2,1)
+% scatter3(TD.x,TD.y,TD.ts,'.r')
+
+% interpolate radius
+iFrame = 1;
+objectEventIndex = 0;
+nFrame = numel(userInputArray);
+nObj = size(userInputArray,2);
+
+x_coor = real(userInputArray(:,1));x_coor(x_coor==0) = NaN;
+y_coor = -real(1i*userInputArray(:,1));y_coor(y_coor==0) = NaN;
+
+objx = x_coor(iFrame);
+objy = y_coor(iFrame);
+objRadSquared = userInputRadiusArray(iFrame)^2;
+
+for idx = 1:nEvents
+    x = TD.x(idx);
+    y = TD.y(idx);
+    t =  TD.ts(idx);
+    while t>timeStamp(min(iFrame+1,nFrame)) && iFrame < nFrame
+        iFrame = iFrame + 1;
+        objx = x_coor(iFrame);
+        objy = y_coor(iFrame);
+        objRadSquared = userInputRadiusArray(iFrame)^2;
+        [objx; objy; objRadSquared;]
+    end
+    
+    for iObj = 1
+        if ((x - objx(iObj))^2 + (y - objy(iObj))^2)<objRadSquared(iObj)
+            objectEventIndex = objectEventIndex +1;
+            objectTd.x(objectEventIndex) = x;
+            objectTd.y(objectEventIndex) = y;
+            objectTd.ts(objectEventIndex) = t;
+        end
+    end
+end
+% time = 1:numel(userInputArray);
+
+figure(456);
+subplot(1,2,1);
+scatter3(x_coor,y_coor,timeStamp,'.r');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+title("Waggle Labels per frame");
+xlim([0 1920]); % 1920 1080
+ylim([0 1080]);
+subplot(1,2,2);
+scatter3(objectTd.x,objectTd.y,objectTd.ts,'.');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+title("Waggle Labels with radius");
+xlim([0 1920]);
+ylim([0 1080]);
+
+%% evaluation
+load("./data/" + videoName + "_labels.mat") % load ground truth
+load("./data/" + videoName + ".MP4_tds.mat") % load predicted labels
+
+objectEventIndex = 0;objectTd = [];valid = 0;
+x_coor = real(userInputArray(:,1));x_coor(x_coor==0) = NaN;
+y_coor = -real(1i*userInputArray(:,1));y_coor(y_coor==0) = NaN;
+timeStamp = 1:numel(userInputArray);
+
+figure(56757);
+subplot(2,2,1)
+scatter3(td.x,td.y,td.ts,'.r');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+xlim([0 1920]); % 1920 1080
+ylim([0 1080]);
+title("Detected Waggle Dance");
+
+subplot(2,2,2)
+scatter3(x_coor,y_coor,timeStamp,'.r');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+xlim([0 1920]); % 1920 1080
+ylim([0 1080]);
+title("Waggle Dance Ground Truth");
+
+v0 = VideoReader(videoName + ".MP4");
+nFrameTotal = round(v0.FrameRate *v0.Duration);
+outputLabel = nan(numel(y_coor),1);
+
+for iFrame = 1:nFrameTotal
+    valid = valid + 1;
+    
+    if iFrame < numel(td.y) && iFrame < numel(y_coor)
+        if ((td.x(iFrame) - x_coor(iFrame))^2 + (td.y(iFrame) - y_coor(iFrame))^2)<userInputRadiusArray(iFrame)^2
+            objectEventIndex = objectEventIndex +1;
+            objectTd.x(objectEventIndex)     = td.x(iFrame);
+            objectTd.y(objectEventIndex)     = td.y(iFrame);
+            objectTd.ts(objectEventIndex)    = td.ts(iFrame);
+            outputLabel(valid) = 1;
+        else
+            outputLabel(valid) = 0;
+        end
+    end
+end
+
+Accuracy = 1 - numel(find(outputLabel==0))/numel(td.x);
+% Accuracy = numel(find(outputLabel==1))/numel(objectTd.x);
+
+subplot(2,2,[3 4])
+scatter3(objectTd.x,objectTd.y,objectTd.ts,'.r');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+xlim([0 1920]); % 1920 1080
+ylim([0 1080]);
+title("Correctly detected waggle dance \color{magenta}[Accuracy: " + num2str(Accuracy) + "%]");

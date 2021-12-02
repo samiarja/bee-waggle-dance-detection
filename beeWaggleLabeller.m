@@ -1,38 +1,19 @@
-% TODO: add a title with variables
-% visualise labelling circle on the frame
-% move every n frames
-% beatify the gui
-
-%% Video Display in a Custom User Interface
-% This example shows how to display multiple video streams in a custom
-% graphical user interface (GUI).
-
-%% Overview
-% When working on a project involving video processing, we are often faced
-% with creating a custom user interface. It may be needed for the purpose
-% of visualizing and/or demonstrating the effects of our algorithms on the
-% input video stream. This example illustrates how to create a figure
-% window with two axes to display two video streams. It also shows how to
-% set up buttons and their corresponding callbacks.
-
-%   Copyright 2004-2014 The MathWorks, Inc.
-
-%%
-% The example is written as a function with the main body at the top and
-% helper routines in the form of <docid:matlab_ug#f4-39683 nested
-% functions> below.
 function VideoInCustomGUIExample()
 
 %%
 % Initialize the video reader.
+% only modify framerate and waggleLabellingROI
+downsampling = 1;
 iFrame  = 1;
 iObject = 1;
+framerate = 20;
+waggleLabellingROI = [1200 800 300 300]; % [0 0 1920 1080]
 userInputArray = zeros(500,1);
 userInputRadiusArray = zeros(500,1);
 videoName = "20210803t1727d200m.MP4";
 videoFileName = "./data/" + videoName;
 % videoSrc = VideoReader(videoFileName);
-videoSrc = vision.VideoFileReader('20210803t1517d100m.MP4','ImageColorSpace','RGB','VideoOutputDataType','uint8');
+videoSrc = vision.VideoFileReader(videoName,'ImageColorSpace','RGB','VideoOutputDataType','uint8');
 % videoSrc1 = VideoReader(videoFileName);
 %%
 % Create a figure window and two axes to display the input video and the
@@ -77,12 +58,11 @@ a = size(frame,1);
             'resize', 'on', ...
             'tag',figTag, ...
             'renderer','painters', ...
-            'position',[50 50 1500 700],... % [X Y W H]
+            'position',[50 150 1500/downsampling 700/downsampling],... % [X Y W H]
             'HandleVisibility','callback'); % hide the handle to prevent unintended modifications of our custom UI
         
         % Create axes and titles
         hAxes.axis1 = createPanelAxisTitle(hFig,[0.1 0.17 0.8 0.7],'Bee Waggle Dance'); % [X Y W H]
-        
     end
 
 %% Create Axis and Title
@@ -101,7 +81,7 @@ a = size(frame,1);
         hAxis.YColor = [1 1 1];
         % Set video title using uicontrol. uicontrol is used so that text
         % can be positioned in the context of the figure, not the axis.
-        titlePos = [pos(1)+0.2 pos(2)+pos(3)+0.3 0.9 0.7];
+        titlePos = [pos(1)+0.2 pos(2)+pos(3)+4 1 1];
         uicontrol('style','text',...
             'String', axisTitle,...
             'Units','Normalized',...
@@ -142,8 +122,6 @@ a = size(frame,1);
         uicontrol(hFig,'unit','pixel','style','pushbutton','string','Exit',...
             'position',[800 80 50 25],'callback', ...
             {@exitCallback,videoSrc,hFig});
-        
-        
     end
 
 %% Next bee button callback
@@ -183,15 +161,14 @@ a = size(frame,1);
             end
         end
     end
-%% Labelling button callback
+%% Start Labelling button callback
     function labelCallback(hObject,~,videoSrc,hFig)
         try
             [frame1] = getAndProcessFrame(videoSrc);
-            showFrameOnAxis(hAxes.axis1, frame1);
-            colorArray=hsv(10);
+            showFrameOnAxis(hAxes.axis1, imresize(imcrop(frame1,waggleLabellingROI),1/downsampling));
             hObject.String = 'Labelling Started...';
             while strcmp(hObject.String, 'Labelling Started...') && ~isDone(videoSrc)
-                [y,x,button]        = ginput(1);
+                [y,x,button] = ginput(1);
                 if button == 1 || button == 2  % mouse clicks
                     if x<1080 && x>0 && y<1920 && y>0
                         if button == 2
@@ -199,19 +176,20 @@ a = size(frame,1);
                             % use x2 and y2 as well as x and y to find the radius of this
                             % object
                             thisObjectsRadiusNow = sqrt((x2-x)^2+(y2-y)^2);
-                            [frame1] = getAndProcessFrame(videoSrc);
-                            showFrameOnAxis(hAxes.axis1, frame1);
-                        end
-                        userInputArray(iFrame,iObject) = x + y*1i;
-                        userInputRadiusArray(iFrame,iObject) = thisObjectsRadiusNow;
-                        iFrame  = iFrame + 1;
-                                                
+                            framerateinc = 0;
+                            while framerateinc < framerate
+                                framerateinc = framerateinc + 1;
+                                [frame1] = getAndProcessFrame(videoSrc);
+                                showFrameOnAxis(hAxes.axis1, imresize(imcrop(frame1,waggleLabellingROI),1/downsampling));
+                                userInputArray(iFrame,iObject) = x + y*1i;
+                                userInputRadiusArray(iFrame,iObject) = thisObjectsRadiusNow;
+                                iFrame  = iFrame + 1;
+                            end
+                        end           
                         [x y thisObjectsRadiusNow]
                         
-%                         plot(yRecent,xRecent,'o','color',colorArray(iObject,:))
                     end
                 end
-%                 save("data/20210803t1727d200m_labels","userInputArray","userInputRadiusArray");
             end
         catch ME
             % Re-throw error message if it is not related to invalid handle
@@ -250,7 +228,8 @@ a = size(frame,1);
                 % Get input video frame and rotated frame
                 [frame1] = getAndProcessFrame(videoSrc);
                 % Display input video frame on axis
-                showFrameOnAxis(hAxes.axis1, frame1);
+                showFrameOnAxis(hAxes.axis1, imresize(imcrop(frame1,waggleLabellingROI),1/downsampling));
+                iFrame  = iFrame + 1;
                 % Display rotated video frame on axis
                 %                 showFrameOnAxis(hAxes.axis2, frame2);
             end
@@ -274,7 +253,7 @@ a = size(frame,1);
         
         % Read input video frame
         frame1 = step(videoSrc);
-        %         frame1 = padarray(frame1, [30 30], 0, 'both');
+%         frame1 = padarray(frame1, [100 100], 1, 'both');
         %         frame2 = padarray(frame2, [30 30], 0, 'both');
         
     end

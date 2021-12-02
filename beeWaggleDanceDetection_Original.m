@@ -5,7 +5,7 @@ addpath("/media/sami/Samsung_T5/MPhil/Code/DeepGreen/greenhouseCode")
 videoName = "20210803t1727d200m.MP4";
 videoFileName = "./data/" + videoName;
 limits.rowStart    = 401;    limits.rowEnd      = 1000;    limits.colStart    = 201;    limits.colEnd      = 1700;
-v0 = VideoReader(videoFileName);
+v0 = VideoReader(videoName);
 disp("Loading data...")
 
 %%%%%%%%%%%%%%%% LOAD TEMPLATE
@@ -109,7 +109,7 @@ for iSegment = 1:5
         frameArray(:,:,:,iFrame) =  imresize(frameInt,0.5);
         if iFrame>1
             dRgbFrameArray(:,:,:,iFrame) = single(frameArray(:,:,:,iFrame)) - single(frameArray(:,:,:,iFrame-1));
-            dGreyScaleArray(:,:,iFrame) =     imresize(vecnorm(single(frameArray(:,:,:,iFrame)),2,3) -   vecnorm(single(frameArray(:,:,:,iFrame-1)),2,3),0.5);
+            dGreyScaleArray(:,:,iFrame)  = imresize(vecnorm(single(frameArray(:,:,:,iFrame)),2,3) -   vecnorm(single(frameArray(:,:,:,iFrame-1)),2,3),0.5);
         end
     end
     
@@ -158,7 +158,7 @@ for iSegment = 1:5
         xlabel("Kernel Size");
         ylabel("Kernel value (0-1)");
         title("Convolution kernel layer 2");
-        eqtext = '$$waggleFilt1={e^{\frac{-a}{\tau}} \ast sin(\frac{5}{2\pi(a+5.2)})}$$';
+        eqtext = '$$waggleFilt2={e^{\frac{-a}{\tau}} \ast sin(\frac{5}{2\pi(a+5.2)})}$$';
         ylim([-1 1.5]);
         text(0.5, 1.2, eqtext, 'Interpreter', 'Latex', 'FontSize', 18, 'Color', 'k')
         
@@ -167,7 +167,7 @@ for iSegment = 1:5
         xlabel("Kernel Size");
         ylabel("Kernel value (0-1)");
         title("Convolution kernel layer 3");
-        eqtext = '$$waggleFilt1={e^{\frac{-a}{\tau}} \ast sin(\frac{4}{2\pi(a+6.5)})}$$';
+        eqtext = '$$waggleFilt3={e^{\frac{-a}{\tau}} \ast sin(\frac{4}{2\pi(a+6.5)})}$$';
         ylim([-1 1.5]);
         text(0.5, 1.2, eqtext, 'Interpreter', 'Latex', 'FontSize', 18, 'Color', 'k')
         set(gcf, 'Name', 'Convolution Kernel Layer 1');
@@ -245,14 +245,14 @@ for iSegment = 1:5
             waggleConvResult(:,:,iTemplate) = conv2(meanWaggleMapFrame,waggleTemplate25(:,:,iTemplate),'same');
         end
         
-%         if SHOW
-%             for iTemplate = 1:nTemplate
-%                 figure(567570);
-%                 subplot(4,4,iTemplate)
-%                 imagesc(waggleConvResult(:,:,iTemplate))
-%                 set(gcf, 'Name', '2D Convolution on the frame differencing');
-%             end
-%         end
+        if SHOW
+            for iTemplate = 1:nTemplate
+                figure(567570);
+                subplot(4,4,iTemplate)
+                imagesc(waggleConvResult(:,:,iTemplate))
+                set(gcf, 'Name', '2D Convolution on the frame differencing');
+            end
+        end
         
         [waggleConvResultMaxedVal, waggleTemplateIdx ]= max(waggleConvResult,[],3);
         
