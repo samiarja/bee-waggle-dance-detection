@@ -1,0 +1,806 @@
+clear
+addpath("../DeepGreen/greenhouseCode")
+tic;
+%%%%%%%%%%%%%%%% LOAD VIDEO
+
+% videoName = "20210803t1727d200m";
+dataPATH = "input_videos/20210803t1727d200m_cropped";
+videoFileName = "./input_videos/" + dataPATH + ".MP4";
+% limits.rowStart    = 401;    limits.rowEnd      = 1000;    limits.colStart    = 201;    limits.colEnd      = 1700;
+% limits.rowStart    = 1;    limits.rowEnd      = 800;    limits.colStart    = 1;    limits.colEnd      = 800;
+v0 = VideoReader(dataPATH + ".MP4");
+disp("Loading data...")
+
+%%%%%%%%%%%%%%%% LOAD TEMPLATE
+load('waggle16Templates_v1.mat')
+disp("Template loaded...")
+
+SHOW                        = 0;
+RECORD_VIDEO                = SHOW && 1;
+td                          = [];
+tdWithInh                   = [];
+jTd                         = [];
+iWaggleInh                  = 0;
+iWaggleEvent                = 0;
+avgFrameDepth               = 6;
+convMapThreshold            = 7;
+nEventsForWaggleThreshold   = 10;
+nDel                        = 18;
+nTemplate                   = size(waggleTemplate25,3);
+nFrameTotal                 = round(v0.FrameRate *v0.Duration);
+numberofSegment             = 5;
+framesPerSegment            = nFrameTotal/numberofSegment;
+nSegment                    = ceil(nFrameTotal/framesPerSegment);
+AllFrames = 0;
+
+writerObj = VideoWriter('./output_videos/simulation_20210803t1727d200m_cropped_bee_waggles_10fps_cropped_new2.avi');
+writerObj.FrameRate = 30;
+open(writerObj);
+
+
+segFrame = 0;
+for iSegment = 1:numberofSegment
+    if iSegment < 3
+       iSegment
+        
+        iFrame = 0;
+        %startFrame = 1;%
+        startFrame = max((iSegment-1)*framesPerSegment+1-nDel,1);
+        
+        %endFrame = nFrameTotal;
+        endFrame = min(iSegment*framesPerSegment,nFrameTotal);
+        nFrame =  endFrame - startFrame;
+        iFrameWithWaggle = 0;waggleStats = {};
+        
+        %%%%%%%% for 20210803t1727d200m
+        %     imageWidth  = 286;
+        %     imageHeight = 192;
+        %%%%%%%%
+        
+        %%%%%%%% for 20210803t1259d050m_cropped
+        imageWidth  = v0.Width;
+        imageHeight = v0.Height;
+        
+        
+        %     imageWidth                              = limits.colEnd - limits.colStart +1;
+        %     imageHeight                             = limits.rowEnd - limits.rowStart +1;
+        downsamplingFactorframeArray            = 2; %2;
+        frameArray                              = zeros(round(imageHeight/downsamplingFactorframeArray),round(imageWidth/downsamplingFactorframeArray),3,nFrame,'uint8');
+        downsamplingFactorRGB                   = 2; %2;
+        dRgbFrameArray                          = zeros(round(imageHeight/downsamplingFactorRGB),round(imageWidth/downsamplingFactorRGB),3,nFrame,'single');
+        downsamplingFactorGreyScale             = 4; %4;
+        dGreyScaleArray                         = zeros(round(imageHeight/downsamplingFactorRGB),round(imageWidth/downsamplingFactorRGB),nFrame,'single');
+        
+        for iFrameOriginal = startFrame:endFrame
+            iFrame = iFrame + 1;
+            
+            
+            frameIntFull = read(v0,iFrameOriginal);
+            
+            %             frameInt = frameIntFull(limits.rowStart:limits.rowEnd,limits.colStart:limits.colEnd,:);
+            frameInt = frameIntFull;
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            downsamplingFactor = 0.5;
+            %             frameInt = imcrop(frameInt,waggleLabellingROI);
+            frameArray(:,:,:,iFrame) =  imresize(frameInt,downsamplingFactor);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            if iFrame>1
+                dRgbFrameArray(:,:,:,iFrame) = single(frameArray(:,:,:,iFrame)) - single(frameArray(:,:,:,iFrame-1));
+                dGreyScaleArray(:,:,iFrame) =  vecnorm(single(frameArray(:,:,:,iFrame)),2,3) -   vecnorm(single(frameArray(:,:,:,iFrame-1)),2,3);
+            end
+        end
+        
+        disp("Start 3D convolution...")
+        
+        %%%%  3D convolution
+        sigma        = 10;
+        Tau          = 36;
+        delArray     = 1:nDel;
+        %waggleFilt   = exp(-delArray/Tau).*sin(4/(2*pi)*(delArray+6.5));  % slowestOne
+        %waggleFilt   = exp(-delArray/Tau).*sin(6.5/(2*pi)*(delArray+4));  % too fast
+        waggleFilt1   = exp(-delArray/Tau).*sin(5.75/(2*pi)*(delArray+5.2));
+        waggleFilt4d1 = single(reshape(waggleFilt1,[1,1,1,nDel]));
+        
+        waggleFilt2   = exp(-delArray/Tau).*sin(5/(2*pi)*(delArray+5.2));
+        waggleFilt4d2 = single(reshape(waggleFilt2,[1,1,1,nDel]));
+        
+        waggleFilt3   =exp(-delArray/Tau).*sin(4/(2*pi)*(delArray+6.5));
+        waggleFilt4d3 = single(reshape(waggleFilt3,[1,1,1,nDel]));
+        
+        waggleMap1 = convn(dGreyScaleArray,waggleFilt4d1,'full');
+        waggleMap1 = waggleMap1(:,:,1:nFrame);
+        
+        waggleMap2 = convn(dGreyScaleArray,waggleFilt4d2,'full');
+        waggleMap2 = waggleMap2(:,:,1:nFrame);
+        
+        
+        waggleMap3 = convn(dGreyScaleArray,waggleFilt4d3,'full');
+        waggleMap3 = waggleMap3(:,:,1:nFrame);
+        
+        disp("Finish 3D convolution...")
+        
+        waggleMapMaxed =  zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        maxMat = waggleMap1(:,:,:,1) +nan;
+        
+        for iFrame = 1:nFrame
+            maxMat(:,:,1) = vecnorm(waggleMap1(:,:,iFrame),2,3);
+            maxMat(:,:,2) = vecnorm(waggleMap2(:,:,iFrame),2,3);
+            maxMat(:,:,3) = vecnorm(waggleMap3(:,:,iFrame),2,3);
+            waggleMapMaxed(:,:,iFrame) = max( maxMat,[], 3);
+        end
+        
+        waggleMap1 = [];
+        waggleMap2 = [];
+        waggleMap3 = [];
+        
+        waggleMapMaxedHalf = waggleMapMaxed;
+        
+        waggleConvResult = zeros(round(imageHeight/2),round(imageWidth/2),nTemplate,'single');
+        waggleConvInh=zeros(round(imageHeight/4),round(imageWidth/4),'single');
+        waggleDetectionMap = waggleConvInh;
+        
+        inhDisc=fspecial('disk',9)>0;
+        
+        angleArray = 1:180;
+        angleArrayActivation = angleArray + nan;
+        rad25 = 7;
+        rad50 = rad25*2;
+        jThresh = 20;
+        
+        waggleConvFinalMaxed =  zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        for iFrame = 1:nFrame
+            meanWaggleMapFrame = mean(waggleMapMaxedHalf(:,:,max(iFrame-avgFrameDepth,1):iFrame),3);
+            segFrame = segFrame + 1;
+            AllFrames = AllFrames + 1;
+            
+            %%% 2D convolution between every meanWaggleMapFrame and each
+            %%% template
+            for iTemplate = 1:nTemplate
+                waggleConvResult(:,:,iTemplate) = conv2(meanWaggleMapFrame,waggleTemplate25(:,:,iTemplate),'same');
+            end
+            
+            [waggleConvResultMaxedVal, waggleTemplateIdx ]= max(waggleConvResult,[],3);
+            
+            waggleConvFinalMaxed(:,:,iFrame) = max(waggleConvResult,[],3);
+            
+            resizedWaggleMatch          = imresize(waggleConvResultMaxedVal,.5);
+            waggleConvThreshed          = resizedWaggleMatch>convMapThreshold;
+            waggleConvThreshedMaxed     = waggleConvThreshed & resizedWaggleMatch==max(resizedWaggleMatch(:));% only one waggle detection per frame
+            waggleDetectionMap          = (waggleConvThreshedMaxed & ~waggleConvInh);
+            
+            % find waggle events, find their orientation
+            [iRow, iCol, ~] = find(waggleConvThreshedMaxed>0);
+            [r, c, ~] = find(waggleConvThreshedMaxed>0);
+            
+            figure(567);
+            subtightplot(3,3,1);
+            imh1 =  imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;colorbar; title("Input frames");colormap('gray');
+            title(num2str(iFrame),'color','r','fontSize',14);
+            subtightplot(3,3,2);
+            imhx =  imagesc(dGreyScaleArray(:,:,iFrame));axis image;  colorbar; title("Normalised framediff");colormap('gray');
+            caxis([-70 70] )
+            subtightplot(3,3,3);
+            imh3 =  imagesc(waggleMapMaxed(:,:,iFrame));axis image;colorbar;title("1D convolution");colormap('gray');
+            caxis([0 50] )
+            subtightplot(3,3,4);
+            imh4 =  imagesc( meanWaggleMapFrame  );axis image;  colorbar;title("Moving average");colormap('gray');
+            caxis([0 40] )
+            subtightplot(3,3,5);
+            imh5 =  imagesc(waggleConvResultMaxedVal );axis image;  colorbar;title("2D convolution waggle map");colormap('gray');
+            caxis([0 40] )
+            subtightplot(3,3,6);
+            imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;title("Threshold waggle map");colormap('gray');
+            caxis([0 1] )
+            subtightplot(3,3,8);
+            imh7 =  imagesc(waggleDetectionMap);axis image;  colorbar;title("Detected waggle map");colormap('gray');
+            %             caxis([0 1] )
+            set(gcf,'Position',[100 100 1000 1000]);
+            
+            F = getframe(gcf) ;
+            writeVideo(writerObj, F);
+            
+            
+            if ~isempty(r) && (c-rad25>0) && (c+rad25<size(dGreyScaleArray,2)) && (r-rad25>0) && (r+rad25<size(dGreyScaleArray,1))
+                iWaggleEvent = iWaggleEvent + 1;
+                waggleRegion  = frameArray(r-rad25:r+rad25,c-rad25:c+rad25,:,iFrame);
+                dwaggleRegion = dGreyScaleArray(r-rad25:r+rad25,c-rad25:c+rad25,iFrame);
+                
+                for iAngle = angleArray
+                    waggleRegionRotated = imrotate(dwaggleRegion,iAngle);
+                    angleArrayActivation(iAngle) = std(sum(waggleRegionRotated,2));
+                end
+                
+                movmedianWindow = 10;
+                angleArrayActivation= movmedian(angleArrayActivation,movmedianWindow);
+                [~, bestAngle] = max(angleArrayActivation);
+                td.x(iWaggleEvent)= c;
+                td.y(iWaggleEvent)= r;
+                td.ts(iWaggleEvent)  = iFrame+startFrame-1;
+                td.angle(iWaggleEvent) = bestAngle;
+                td.template{iWaggleEvent} = waggleTemplateIdx(r-rad25:r+rad25,c-rad25:c+rad25);
+                td.context{iWaggleEvent} =  waggleRegion;
+                td.dContext{iWaggleEvent} =  dwaggleRegion;
+                td.frameID(iWaggleEvent)= AllFrames;
+            end
+            
+            [iRowInh, iColInh, ~] = find(waggleDetectionMap>0);
+            if ~isempty(iRowInh) && (c-rad25>0) && (c+rad25<size(dGreyScaleArray,2)) && (r-rad25>0) && (r+rad25<size(dGreyScaleArray,1))
+                for idxInh = 1:numel(iRowInh)
+                    iWaggleInh = iWaggleInh + 1;
+                    r = iRowInh(idxInh);
+                    c = iColInh(idxInh);
+                    
+                    waggleRegion = dGreyScaleArray(r-rad25:r+rad25,c-rad25:c+rad25,iFrame);
+                    
+                    for iAngle = angleArray
+                        waggleRegionRotated = imrotate(waggleRegion,iAngle);
+                        angleArrayActivation(iAngle) = std(sum(waggleRegionRotated,2));
+                        
+                    end
+                    movmedianWindow = 10;
+                    angleArrayActivation= movmedian(angleArrayActivation,movmedianWindow);
+                    [~, bestAngle] = max(angleArrayActivation);
+                    tdWithInh.x(iWaggleInh)= c;
+                    tdWithInh.y(iWaggleInh)= r;
+                    tdWithInh.ts(iWaggleInh)  = iFrame+startFrame-1;
+                    tdWithInh.angle(iWaggleInh) = bestAngle;
+                    tdWithInh.frameID(iWaggleInh) = iFrame;
+                    tdWithInh.vid{iWaggleInh} =  dGreyScaleArray((r-rad25):(r+rad25),(c-rad25):(c+rad25),max(iFrame-40,1):min(iFrame+40,nFrame));
+                    tdWithInh.vidFrame{iWaggleInh} = (max(iFrame-40,1):min(iFrame+40,nFrame))+startFrame-1;
+                    %
+                end
+            end
+            
+            waggleConvInh = min(max(waggleConvInh + single(conv2(waggleConvThreshed,inhDisc,'same')) - .1,0),1);
+            
+            if SHOW
+                if iFrame ==1
+                    subtightplot(5,2,1); % original video
+                    imh1 = imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;
+                    titleHandle = title(num2str(iFrame),'color','r','fontSize',14);
+                    
+                    subtightplot(5,2,2); % frame differencing
+                    imh2 =  imagesc(   uint8((dRgbFrameArray(:,:,:,iFrame))));axis image;
+                    
+                    subtightplot(5,2,3); %conv with the kernel
+                    imh3 =  imagesc(waggleMapMaxed(:,:,iFrame));axis image;
+                    caxis([0 100])
+                    colorbar;
+                    
+                    subtightplot(5,2,4); % avg conv with the kernel
+                    imh4 =  imagesc( meanWaggleMapFrame  );axis image;  colorbar;
+                    caxis([0 250] )
+                    
+                    subtightplot(5,2,5); % conv of the previous
+                    imh5 =  imagesc(waggleConvResultMaxedVal );axis image;  colorbar;
+                    caxis([0 250] )
+                    
+                    subtightplot(5,2,6);
+                    imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;
+                    caxis([0 1] )
+                    
+                    subtightplot(5,2,7);
+                    imh7 =  imagesc(waggleConvInh);axis image;  colorbar;
+                    caxis([0 1] )
+                    
+                    subtightplot(5,2,8);
+                    imh8 =  imagesc(waggleDetectionMap);axis image;  colorbar;
+                    
+                    subtightplot(5,2,9);
+                    imh9 =  imagesc(waggleTemplateIdx);axis image;  colorbar;
+                    
+                    subtightplot(5,2,10);
+                    imh10 =  imagesc(dGreyScaleArray(:,:,iFrame));axis image;  colorbar; %colormap grey;
+                    caxis([-100 100] )
+                    set(gcf, 'Name', 'All processing pipeline');
+                    %         subtightplot(4,2,6);
+                    %         imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;
+                    %         caxis([0 1] )
+                else
+                    set(titleHandle,'String',num2str(iFrame))
+                    set(imh1,'CDATA',   uint8(frameArray(:,:,:,iFrame)));
+                    set(imh2,'CDATA',   uint8((dRgbFrameArray(:,:,:,iFrame))))
+                    set(imh3,'CDATA',  waggleMapMaxed(:,:,iFrame) )
+                    set(imh4,'CDATA',  meanWaggleMapFrame)
+                    set(imh5,'CDATA',  waggleConvResultMaxedVal)
+                    set(imh6,'CDATA',  waggleConvThreshed)
+                    set(imh7,'CDATA',  waggleConvInh)
+                    set(imh8,'CDATA',  waggleDetectionMap)
+                    set(imh9,'CDATA', waggleTemplateIdx)
+                    set(imh10,'CDATA', dGreyScaleArray(:,:,iFrame))
+                end
+                drawnow
+                if RECORD_VIDEO
+                    frame = getframe(figNum);
+                    writeVideo(vid1,frame);
+                    %                     if iFrame ~= nFrameInWaggleConvMap
+                    %                         frame = getframe(figNum);
+                    %                         writeVideo(vid1,frame);
+                    %                     end
+                end
+            end
+        end
+    end
+end
+
+close(writerObj);
+fprintf('Sucessfully generated the video\n')
+%% post processing: visualisation and stats
+%%%%%%%%%----------------------- Post Process
+%load('20210803t1727d200m_td.mat')
+
+nWaggleEvent = numel(td.x);
+templateArray1 = [];templateArray2 = [];
+rr = 1;
+for idx = 1:nWaggleEvent
+    templateArray1(idx) =  td.template{idx}(8,8);
+    templateArray2(idx) = mean(mat2vec(td.template{idx}(8-rr:8+rr,8-rr:8+rr)));
+    aa = (mat2vec(td.template{idx}(8-rr:8+rr,8-rr:8+rr))-1)/15*pi;
+    bb = mean(exp(1i*aa*2));
+    templateArray3(idx) =  angle( bb);
+    SArray3(idx) =  abs( bb);
+end
+
+figure(54534); clf;
+subplot(211)
+plot(td.ts,'.');  grid on;
+subplot(212); hold on;
+plot((templateArray1-1)/15*180,'.');  grid on;
+plot((templateArray2-1)/15*180,'+');  grid on;
+for idx = 1:nWaggleEvent
+    plot(idx,mod(templateArray3(idx)*360/2/pi/2,180),'or','markersize', 25*SArray3(idx)^3);  grid on;
+end
+
+for idx = 1:nWaggleEvent
+    if idx ==1
+        iWaggle = 1;
+        jdx = 1;
+        waggleNumberArray(idx) = iWaggle;
+        waggleEventNumberArray(idx) = jdx;
+        waggleCellArray{iWaggle}(jdx) = idx;
+        waggleAngleCellArray{iWaggle}(jdx) = templateArray3(idx);
+    else
+        if td.ts(idx)-td.ts(idx-1)<=1   % add event to this waggle
+            jdx = jdx + 1;
+            waggleNumberArray(idx) = iWaggle;
+            waggleEventNumberArray(idx) = jdx;
+            waggleCellArray{iWaggle}(jdx) = idx;
+            waggleAngleCellArray{iWaggle}(jdx) = templateArray3(idx);
+        else
+            jdx = 1;
+            iWaggle = iWaggle + 1;
+            waggleNumberArray(idx) = iWaggle;
+            waggleEventNumberArray(idx) = jdx;
+            waggleCellArray{iWaggle}(jdx) = idx;
+            waggleAngleCellArray{iWaggle}(jdx) = templateArray3(idx);
+        end
+    end
+end
+nWaggle = numel(waggleCellArray);
+
+for iWaggle = 1:nWaggle
+    meanWaggleAngle(iWaggle) = mode(waggleAngleCellArray{iWaggle});
+    %     meanWaggleAngle(iWaggle) = angle(mean(exp(1i*waggleAngleCellArray{iWaggle}*2)));
+    meanWaggleMag(iWaggle) = abs(mean(exp(1i*waggleAngleCellArray{iWaggle}*2)));
+end
+waggleCellArray = {};waggleAngleCellArray={};meanWaggleAngleArray = [];meanWaggleMagArray = [];
+for idx = 1:nWaggleEvent
+    if idx==49
+        disp('');
+    end
+    if idx ==1
+        iWaggle = 1;
+        jdx = 1;
+        waggleCellArray{iWaggle}(jdx) = idx;
+        waggleAngleCellArray{iWaggle}(jdx) = templateArray3(idx);
+        meanWaggleAngleArray(idx) = meanWaggleAngle(iWaggle);
+        meanWaggleMagArray(idx) =  meanWaggleMag(iWaggle);
+    else
+        if td.ts(idx)-td.ts(idx-1)<=1   % same waggle add event to the current waggle
+            jdx = jdx + 1;
+            waggleCellArray{iWaggle}(jdx) = idx;
+            waggleAngleCellArray{iWaggle}(jdx) = templateArray3(idx);
+            meanWaggleAngleArray(idx) = meanWaggleAngle(iWaggle);
+            meanWaggleMagArray(idx) =  meanWaggleMag(iWaggle);
+        else
+            jdx = 1;
+            iWaggle = iWaggle + 1;
+            waggleCellArray{iWaggle}(jdx) = idx;
+            waggleAngleCellArray{iWaggle}(jdx) = templateArray3(idx);
+            meanWaggleAngleArray(idx) = meanWaggleAngle(iWaggle);
+            meanWaggleMagArray(idx) =  meanWaggleMag(iWaggle);
+        end
+    end
+end
+
+
+
+figure(54531); clf;
+subplot(211)
+plot(td.ts,'.');  grid on;
+subplot(212); hold on;
+plot((templateArray1-1)/15*180,'.');  grid on;
+plot((templateArray2-1)/15*180,'+');  grid on;
+for idx = 1:nWaggleEvent
+    plot(idx,mod(meanWaggleAngleArray(idx)*360/2/pi/2,180),'or','markersize', 25*meanWaggleMagArray(idx)^3);  grid on;
+end
+
+tdAugmented = td;
+for idx = 1:nWaggleEvent
+    tdAugmented.iWaggle(idx)           = waggleNumberArray(idx);
+    tdAugmented.nEventsThisWaggle(idx) = numel(waggleCellArray{waggleNumberArray(idx)});
+    tdAugmented.iEventThisWaggle(idx)  = waggleEventNumberArray(idx);
+    tdAugmented.meanAngle(idx)         = meanWaggleAngleArray(idx);
+    tdAugmented.meanMag(idx)           = meanWaggleMagArray(idx);
+    tdAugmented.confidence(idx)        = (tdAugmented.nEventsThisWaggle(idx)>nEventsForWaggleThreshold)*(tdAugmented.meanMag(idx) >0.5)*tdAugmented.meanMag(idx) ;
+end
+
+
+tdCleaned  = [];
+idxCleaned = 0;
+for idx = 1:nWaggleEvent
+    if tdAugmented.confidence(idx)>0
+        idxCleaned = idxCleaned +1;
+        tdCleaned.originalIdx(idxCleaned) = idx;
+        tdCleaned.x(idxCleaned)          =  td.x(idx);
+        tdCleaned.y(idxCleaned)          = td.y(idx);
+        tdCleaned.ts(idxCleaned)         =  td.ts(idx);
+        tdCleaned.nEventsThisWaggle(idxCleaned) =  tdAugmented.nEventsThisWaggle(idx);
+        tdCleaned.iWaggle(idxCleaned)     = tdAugmented.iWaggle(idx);
+        tdCleaned.meanAngle(idxCleaned)  =  meanWaggleAngleArray(idx);
+        tdCleaned.confidence(idxCleaned) = tdAugmented.confidence(idx);
+        tdCleaned.context{idxCleaned}    =   td.context{idx};
+        tdCleaned.dcontext{idxCleaned}   =   td.dContext{idx};
+    end
+end
+
+
+
+figure(42421); clf; hold on;
+plot(tdCleaned.originalIdx, tdCleaned.nEventsThisWaggle,'o');
+plot(1:numel(tdAugmented.x),tdAugmented.nEventsThisWaggle,'x');
+grid on; box on;
+
+figure(42422); clf; hold on;
+plot(tdCleaned.originalIdx, tdCleaned.iWaggle,'o');
+plot(1:numel(tdAugmented.x),tdAugmented.iWaggle,'x');
+grid on; box on;
+
+figure(42423); clf; hold on;
+plot(tdCleaned.originalIdx, tdCleaned.confidence,'o');
+plot(1:numel(tdAugmented.x),tdAugmented.confidence,'x');
+grid on; box on;
+
+figure(42424); clf; hold on;
+plot(tdCleaned.nEventsThisWaggle,tdCleaned.meanAngle*360/2/pi,'o');
+grid on; box on;
+
+figure(42425); clf; hold on;
+plot3(tdCleaned.x, tdCleaned.y,tdCleaned.ts,'.')
+grid on; box on;
+
+
+imageWidth  = limits.colEnd - limits.colStart +1;
+imageHeight = limits.rowEnd - limits.rowStart +1;
+
+frame0     =  zeros(imageHeight/2,imageWidth/2,3,'uint8');
+ry0 = [nan nan];
+cx0 = [nan nan];
+nFrameTotal = round(v0.FrameRate *v0.Duration);
+idx = 1;jdx=1;
+rad = 30;
+
+if SHOW
+    for iFrame = 1:min(nFrameTotal,td.ts(end))
+        frameIntFull = read(v0,iFrame);
+        frameInt = imresize(frameIntFull(limits.rowStart:limits.rowEnd,limits.colStart:limits.colEnd,:),.5);
+        frame0 = frameInt;
+        frame0(:,:,1) = frame0(:,:,1)* 0;
+        ry = ry0;
+        cx = cx0;
+        if iFrame == tdAugmented.ts(idx)
+            r = td.y(idx)*2;
+            c = td.x(idx)*2;
+            frame0((r-rad):(r+rad),(c-rad):(c+rad),:) = frameInt((r-rad):(r+rad),(c-rad):(c+rad),:);
+            idx = idx+1;
+        end
+        if iFrame == tdCleaned.ts(jdx)
+            r = td.y(jdx)*2;
+            c = td.x(jdx)*2;
+            frame0((r-rad):(r+rad),(c-rad):(c+rad),:) = frameInt((r-rad):(r+rad),(c-rad):(c+rad),:)*2;
+            jdx = jdx+1;
+        end
+        if iFrame ==1
+            
+            figure(5423541);  clf;
+            subplot(2,1,1);
+            imh1 = imagesc(frameInt); axis image;
+            tt1 = title(['idx =' num2str(idx)  '   iFrame = ' num2str(iFrame)]);
+            
+            subplot(2,1,2);hold on;
+            imh2 = imagesc(frame0); axis image;
+            tt2 = title(['idx =' num2str(idx)  '   iFrame = ' num2str(iFrame)]);
+            plotHandle1 = plot(cx,ry,'o:w','linewidth',1) ;
+            set(gca, 'YDir','reverse')
+        else
+            %set(plotHandle1,'XDATA',cx,'YDATA',ry)
+            set(tt1,'String',['idx =' num2str(idx)  '   iFrame = ' num2str(iFrame)])
+            set(imh1,'CDATA',   frameInt);
+            set(tt2,'String',['idx =' num2str(idx)  '   iFrame = ' num2str(iFrame)])
+            set(imh2,'CDATA',  frame0);
+        end
+        drawnow
+    end
+end
+
+save([videoName + '.MP4_tds.mat'],'td','tdWithInh','tdCleaned','tdAugmented','limits','videoFileName')
+
+%% DATA POINT INTERPOLATION
+load("./data/" + videoName + "_labels.mat")
+
+TD          = [];
+timeNow     = 0;
+x_coor      = real(userInputArray(:,1));x_coor(x_coor==0) = NaN;
+y_coor      = -real(1i*userInputArray(:,1));y_coor(y_coor==0) = NaN;
+timeStamp   = 1:numel(userInputArray);
+nEvents     = numel(x_coor);
+timeEnd     = nEvents;
+
+for idx = 1:nEvents
+    timeNow     = timeNow + round(rand*10);
+    TD.x(idx)   = ceil(rand*max(x_coor));
+    TD.y(idx)   = ceil(rand*max(y_coor));
+    TD.p(idx)   = 1;
+    TD.ts(idx)  = timeNow;
+end
+
+TD.ts = TD.ts/TD.ts(end)*timeEnd;
+% figure(453453)
+% subplot(1,2,1)
+% scatter3(TD.x,TD.y,TD.ts,'.r')
+
+% interpolate radius
+iFrame = 1;
+objectEventIndex = 0;
+nFrame = numel(userInputArray);
+nObj = size(userInputArray,2);
+
+x_coor = real(userInputArray(:,1));x_coor(x_coor==0) = NaN;
+y_coor = -real(1i*userInputArray(:,1));y_coor(y_coor==0) = NaN;
+
+objx = x_coor(iFrame);
+objy = y_coor(iFrame);
+objRadSquared = userInputRadiusArray(iFrame)^2;
+
+for idx = 1:nEvents
+    x = TD.x(idx);
+    y = TD.y(idx);
+    t =  TD.ts(idx);
+    while t>timeStamp(min(iFrame+1,nFrame)) && iFrame < nFrame
+        iFrame = iFrame + 1;
+        objx = x_coor(iFrame);
+        objy = y_coor(iFrame);
+        objRadSquared = userInputRadiusArray(iFrame)^2;
+        [objx; objy; objRadSquared;]
+    end
+    
+    for iObj = 1
+        if ((x - objx(iObj))^2 + (y - objy(iObj))^2)<objRadSquared(iObj)
+            objectEventIndex = objectEventIndex +1;
+            objectTd.x(objectEventIndex) = x;
+            objectTd.y(objectEventIndex) = y;
+            objectTd.ts(objectEventIndex) = t;
+        end
+    end
+end
+% time = 1:numel(userInputArray);
+
+figure(456);
+subplot(1,2,1);
+scatter3(x_coor,y_coor,timeStamp,'.r');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+title("Waggle Labels per frame");
+xlim([0 1920]); % 1920 1080
+ylim([0 1080]);
+subplot(1,2,2);
+scatter3(objectTd.x,objectTd.y,objectTd.ts,'.');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("Time [frame]");
+title("Waggle Labels with radius");
+xlim([0 1920]);
+ylim([0 1080]);
+%% final evaluation
+load('final_labels/20210803t1727d200m_cropped/20210803t1727d200m_cropped_TD.mat')
+load('final_labels/20210803t1727d200m_cropped/20210803t1727d200m_ground_truth.mat')
+
+nFrameTotal = 3000;
+beePixelSize = 50;
+missclassified = 0;
+correctlyclassified = 0;
+td_missclassified = [];
+td_correctlyclassified = [];
+
+for idx = 1:numel(td.x)
+    if ((td.x(idx)*4 - td_gt.x(idx))^2 + (td.y(idx)*4 - td_gt.y(idx))^2)<beePixelSize^2
+        correctlyclassified = correctlyclassified +1;
+        td_correctlyclassified.x(correctlyclassified) = td.x(idx)*4;
+        td_correctlyclassified.y(correctlyclassified) = td.y(idx)*4;
+        td_correctlyclassified.ts(correctlyclassified) = td.ts(idx);
+    else
+        missclassified = missclassified +1;
+        td_missclassified.x(missclassified) = td.x(idx)*4;
+        td_missclassified.y(missclassified) = td.y(idx)*4;
+        td_missclassified.ts(missclassified) = td.ts(idx);
+    end
+end
+
+oneHotEncodedLabels_td    = nan(nFrameTotal,1); %sequence
+oneHotEncodedLabels_td_gt = nan(nFrameTotal,1); %sequence
+
+for idx = 1:nFrameTotal
+    if find(td.ts==idx) > 0
+        oneHotEncodedLabels_td(idx) = 1;
+    else
+        oneHotEncodedLabels_td(idx) = 0;
+    end
+end
+
+for idx = 1:nFrameTotal
+    if find(td_gt.frameID==idx) > 0
+        oneHotEncodedLabels_td_gt(idx) = 1;
+    else
+        oneHotEncodedLabels_td_gt(idx) = 0;
+    end
+end
+
+correctlyLabeledPositives_TP = sum(and(oneHotEncodedLabels_td_gt,oneHotEncodedLabels_td),1);   % TP
+correctlyLabeledNegatives_TN = sum(and(~oneHotEncodedLabels_td_gt,~oneHotEncodedLabels_td),1); % TN
+wronglyLabeledPositives_FP = sum((oneHotEncodedLabels_td_gt == 1) & (oneHotEncodedLabels_td == 0)); % FP
+wronglyLabeledNegatives_FP = sum((oneHotEncodedLabels_td_gt == 0) & (oneHotEncodedLabels_td == 1)); % FN
+actualpositives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) > 0,1)); % TP+FN
+actualnegatives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) <  1,1)); % TN+FP
+
+sensitivity = correctlyLabeledPositives_TP ./ actualpositives % TP/TP+FN
+specificity = correctlyLabeledNegatives_TN ./ actualnegatives % TN/TN+FP
+precision = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledPositives_FP)
+recall = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledNegatives_FP)
+F1 = (2 * precision * recall) / (precision + recall)
+informedness = sensitivity + specificity - 1
+accuracy = (1 - missclassified/(missclassified + correctlyclassified))*100
+
+figure(6565);
+subplot(1,2,1)
+scatter3(td.x*4,td.y*4,td.ts,'*r');hold on
+scatter3(td_gt.x,td_gt.y,td_gt.frameID,'.b');
+plot3(td_gt.x,td_gt.y,td_gt.frameID, 'bo', 'MarkerSize', 1);
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("#Frames");
+title("Detected waggles information");
+legend([{'Detected Waggles'},{'Labelled Waggles'}]);
+set(gca,'fontsize', 14)
+subplot(1,2,2)
+scatter3(td_correctlyclassified.x,td_correctlyclassified.y,td_correctlyclassified.ts,'.r');hold on
+scatter3(td_missclassified.x,td_missclassified.y,td_missclassified.ts,'.k');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("#Frames");
+title("Waggles evaluation, Accuracy: " + accuracy + "%");
+legend([{'Correctly Detected Waggles'},{'Wrongly Detected Waggles'}]);
+set(gca,'fontsize', 14);
+
+%% Evaluation for single file over multiple iterations
+PATH = "final_labels/20210803t1727d200m_cropped/";
+load(PATH + '/20210803t1727d200m_ground_truth.mat');
+TD = "td_with_threshold_";
+
+convMapThresholdRange   = 7; %24;
+nFrameTotal             = 2400;
+beePixelSize            = 150;
+sensitivity             = nan(convMapThresholdRange,1);
+specificity             = nan(convMapThresholdRange,1);
+precision               = nan(convMapThresholdRange,1);
+recall                  = nan(convMapThresholdRange,1);
+F1                      = nan(convMapThresholdRange,1);
+informedness            = nan(convMapThresholdRange,1);
+accuracy                = nan(convMapThresholdRange,1);
+
+for file_index = convMapThresholdRange
+    missclassified          = 0;
+    correctlyclassified     = 0;
+    td_missclassified       = [];
+    td_correctlyclassified  = [];
+    load(PATH + TD + num2str(file_index) + ".mat");
+    
+    if isempty(td)
+        sensitivity(file_index)     = 0; % TP/TP+FN
+        specificity(file_index)     = 0; % TN/TN+FP
+        precision(file_index)       = 0;
+        recall(file_index)          = 0;
+        F1(file_index)              = 0;
+        informedness(file_index)    = 0;
+        accuracy(file_index)        = 0;
+        
+    else
+        %     if ~isempty(td)
+        if numel(td.x) > numel(td_gt.x)
+            sequence = numel(td_gt.x);
+        else
+            sequence = numel(td.x);
+        end
+        %     end
+        for idx = 1:sequence
+            if ((td.x(idx)*4 - td_gt.x(idx))^2 + (td.y(idx)*4 - td_gt.y(idx))^2)<beePixelSize^2
+                correctlyclassified = correctlyclassified +1;
+                td_correctlyclassified.x(correctlyclassified) = td.x(idx)*4;
+                td_correctlyclassified.y(correctlyclassified) = td.y(idx)*4;
+                td_correctlyclassified.ts(correctlyclassified) = td.ts(idx);
+            else
+                missclassified = missclassified +1;
+                td_missclassified.x(missclassified) = td.x(idx)*4;
+                td_missclassified.y(missclassified) = td.y(idx)*4;
+                td_missclassified.ts(missclassified) = td.ts(idx);
+            end
+        end
+        oneHotEncodedLabels_td    = nan(nFrameTotal,1); %sequence
+        oneHotEncodedLabels_td_gt = nan(nFrameTotal,1); %sequence
+        for idx = 1:nFrameTotal
+            if find(td.ts==idx) > 0
+                oneHotEncodedLabels_td(idx) = 1;
+            else
+                oneHotEncodedLabels_td(idx) = 0;
+            end
+        end
+        for idx = 1:nFrameTotal
+            if find(td_gt.frameID==idx) > 0
+                oneHotEncodedLabels_td_gt(idx) = 1;
+            else
+                oneHotEncodedLabels_td_gt(idx) = 0;
+            end
+        end
+        
+        correctlyLabeledPositives_TP = sum(and(oneHotEncodedLabels_td_gt,oneHotEncodedLabels_td),1);   % TP
+        correctlyLabeledNegatives_TN = sum(and(~oneHotEncodedLabels_td_gt,~oneHotEncodedLabels_td),1); % TN
+        wronglyLabeledPositives_FP = sum((oneHotEncodedLabels_td_gt == 1) & (oneHotEncodedLabels_td == 0)); % FP
+        wronglyLabeledNegatives_FP = sum((oneHotEncodedLabels_td_gt == 0) & (oneHotEncodedLabels_td == 1)); % FN
+        actualpositives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) > 0,1)); % TP+FN
+        actualnegatives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) <  1,1)); % TN+FP
+        
+        %%%%%%%%%% FINAL EVALUATION %%%%%%%%%%
+        sensitivity(file_index) = correctlyLabeledPositives_TP ./ actualpositives; % TP/TP+FN
+        specificity(file_index) = correctlyLabeledNegatives_TN ./ actualnegatives; % TN/TN+FP
+        precision(file_index) = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledPositives_FP);
+        recall(file_index) = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledNegatives_FP);
+        F1(file_index) = (2 * precision(file_index) * recall(file_index)) / (precision(file_index) + recall(file_index));
+        informedness(file_index) = sensitivity(file_index) + specificity(file_index) - 1;
+        accuracy(file_index) = (1 - missclassified/(missclassified + correctlyclassified))*100;
+    end
+end
+
+figure(66);
+subplot(2,1,1);
+plot(F1,"LineWidth",2);grid on;
+x_points = [1, 1, 5, 5];
+y_points = [0, 1, 1, 0];
+color = [0, 0, 1];
+title("F1 -Score");
+xlabel("Threshold");
+hold on;
+a = fill(x_points, y_points, color);
+a.FaceAlpha = 0.1;
+set(gca,'fontsize', 14);
+subplot(2,1,2);
+plot(informedness,"LineWidth",2);grid on;ylim([0 0.25]);
+x_points = [6, 6, 8, 8];
+y_points = [0, 0.43, 0.43, 0];
+color = [0, 0, 1];
+title("Informedness");
+xlabel("Threshold");
+hold on;
+a = fill(x_points, y_points, color);
+a.FaceAlpha = 0.1;
+set(gca,'fontsize', 14);
