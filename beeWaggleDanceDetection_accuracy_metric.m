@@ -1,3 +1,6 @@
+%%%%% start here and make a code to process all recording all together and
+%%%%% save td for each threshold value and each datasets
+
 clear
 addpath("../DeepGreen/greenhouseCode")
 tic;
@@ -215,144 +218,220 @@ for dataset = 1:2
     end
 end
 
-%%
+%% Evaluate multiple recording together
+
 % LOAD VIDEOS
 VIDS = ['final_labels/20210803t1727d200m_cropped';
         'final_labels/20210803t1301d050m_cropped';
         'final_labels/20210803t1508d100m_cropped';
         'final_labels/20210803t1517d100m_cropped';
         'final_labels/20210803t1719d200m_cropped';
-        'final_labels/20210803t1259d050m_cropped'];
+        'final_labels/20210803t1259d050m_cropped';
+        'final_labels/20210803t1301d050m_cropped'];
+
 % LOAD DETECTED WAGGLES
 TD =   ['final_labels/20210803t1727d200m_cropped/20210803t1727d200m_cropped';
         'final_labels/20210803t1301d050m_cropped/20210803t1301d050m_cropped';
         'final_labels/20210803t1508d100m_cropped/20210803t1508d100m_cropped';
         'final_labels/20210803t1517d100m_cropped/20210803t1517d100m_cropped';
         'final_labels/20210803t1719d200m_cropped/20210803t1719d200m_cropped';
-        'final_labels/20210803t1259d050m_cropped/20210803t1259d050m_cropped'];
+        'final_labels/20210803t1259d050m_cropped/20210803t1259d050m_cropped';
+        'final_labels/20210803t1301d050m_cropped/20210803t1301d050m_cropped'];
+
 % LOAD GROUND TRUTH
 GT = ['final_labels/20210803t1727d200m_cropped/20210803t1727d200m_ground_truth.mat';
       'final_labels/20210803t1301d050m_cropped/20210803t1301d050m_ground_truth.mat';
       'final_labels/20210803t1508d100m_cropped/20210803t1508d100m_ground_truth.mat';
       'final_labels/20210803t1517d100m_cropped/20210803t1517d100m_ground_truth.mat';
       'final_labels/20210803t1719d200m_cropped/20210803t1719d200m_ground_truth.mat';
-      'final_labels/20210803t1259d050m_cropped/20210803t1259d050m_ground_truth.mat'];
+      'final_labels/20210803t1259d050m_cropped/20210803t1259d050m_ground_truth.mat';
+      'final_labels/20210803t1301d050m_cropped/20210803t1301d050m_ground_truth.mat'];
 
-% convMapThresholdRange   = 24;
-% sensitivity             = nan(convMapThresholdRange,1);
-% specificity             = nan(convMapThresholdRange,1);
-% precision               = nan(convMapThresholdRange,1);
-% recall                  = nan(convMapThresholdRange,1);
-% F1                      = nan(convMapThresholdRange,1);
-% informedness            = nan(convMapThresholdRange,1);
-% accuracy                = nan(convMapThresholdRange,1);
+ANGLE_DETECTION             = 1
+beePixelSize                = 150;
+angleRange                  = 20;  
+human_labelled_waggles      = [];
+algorithm_detected_waggles  = [];
 
-nFrameTotalperData = [];
 for filedata = 1:numel(VIDS(:,1))
-    video=dir(VIDS(filedata,:) + "/*.MP4");
-    v0 = VideoReader(VIDS(filedata,:) + "/" + video.name);
-    nFrameTotalperData = [nFrameTotalperData;round(v0.FrameRate *v0.Duration)];
-end
-nFrameTotal = sum(nFrameTotalperData);
-
-beePixelSize              = 150;
-missclassified            = 0;
-correctlyclassified       = 0;
-
-td_missclassified         = [];
-td_correctlyclassified    = [];
-oneHotEncodedLabels_td    = nan(nFrameTotal,1);
-oneHotEncodedLabels_td_gt = nan(nFrameTotal,1);
-
-% for file_index = 7 %1:convMapThresholdRange
-for filedata = 1:numel(VIDS(:,1))
-    filedata
-    load(TD(filedata,:) + "_TD.mat")
+%     filedata
+    load(TD(filedata,:) + "_25x25Template.mat")
+%     load(TD(filedata,:) + "_TD.mat")
     %     load(VIDS(filedata,:) + "td_with_threshold_" + num2str(file_index) + ".mat");
     load(GT(filedata,:))
+    counter = 0;
+    groundtruth = [];
+    frame_index_Gt = 0;
+    frameID = td_gt.frameID(1);
+    missclassified            = 0;
+    correctlyclassified       = 0;
+    td_missclassified         = [];
+    td_correctlyclassified    = [];
     
-    %         if isempty(td)
-    %             sensitivity(file_index)     = 0; % TP/TP+FN
-    %             specificity(file_index)     = 0; % TN/TN+FP
-    %             precision(file_index)       = 0;
-    %             recall(file_index)          = 0;
-    %             F1(file_index)              = 0;
-    %             informedness(file_index)    = 0;
-    %             accuracy(file_index)        = 0;
-    %         else
+    for idx = 1:td_gt.frameID(end)
+        frame_index_Gt = frame_index_Gt + 1;
+        if frameID > idx
+            groundtruth.x(idx)      = 0;
+            groundtruth.y(idx)      = 0;
+            groundtruth.angle(idx)  = 0;
+            groundtruth.c(idx)      = 0;
+            groundtruth.frameID(idx)      = frame_index_Gt;
+        else
+            counter = counter + 1;
+            groundtruth.x(idx)      = td_gt.x(counter);
+            groundtruth.y(idx)      = td_gt.y(counter);
+            groundtruth.angle(idx)  = td_gt.angle(counter);
+            groundtruth.c(idx)      = 1;
+            groundtruth.frameID(idx)      = frame_index_Gt;
+        end
+    end
+    td_gt = groundtruth;
     
     if numel(td.x) > numel(td_gt.x)
-        sequence = numel(td_gt.x);
-    else
-        sequence = numel(td.x);
+        td.x = td.x(:,1:td_gt.frameID(end));
+        td.y = td.y(:,1:td_gt.frameID(end));
+        td.angle = td.angle(:,1:td_gt.frameID(end));
+        td.ts = td.ts(:,1:td_gt.frameID(end));
+        td.frameID = td.frameID(:,1:td_gt.frameID(end));
     end
-    for idx = 1:sequence
-        if ((td.x(idx)*4 - td_gt.x(idx))^2 + (td.y(idx)*4 - td_gt.y(idx))^2)<beePixelSize^2
+    
+    % detected waggle setup
+    d = diff(td.frameID);
+    d(d==0) = 1;
+    ivec = cumsum([1 d]);
+    y = nan(1,ivec(end));
+    y(ivec) = td.x;td.x = y;
+    td.x(isnan(td.x))=0;
+    y(ivec) = td.y;td.y = y;
+    td.y(isnan(td.y))=0;
+    y(ivec) = td.ts;td.ts = y;
+    td.ts(isnan(td.ts))=0;
+    y(ivec) = td.angle;td.angle = y;
+    td.angle(isnan(td.angle))=0;
+    y(ivec) = td.frameID;td.frameID = y;
+    td.frameID(isnan(td.frameID))=0;
+    
+    counter = 0;
+    frame_index_pred = 0;
+    pred_waggle = [];
+    pred_waggleLabel = [];
+    frameID = td.frameID(1);
+    pred_waggleLabel(find(td.frameID==0))=0;
+    pred_waggleLabel(find(td.frameID~=0))=1;
+    
+    for idx = 1:td.frameID(end)
+        frame_index_pred = frame_index_pred + 1;
+        if frameID > idx
+            pred_waggle.x                   = 0;
+            pred_waggle.y(idx)              = 0;
+            pred_waggle.angle(idx)          = 0;
+            pred_waggle.c(idx)              = 0;
+            pred_waggle.frameID(idx)        = frame_index_pred;
+        else
+            counter = counter + 1;
+            pred_waggle.x(idx)      = td.x(counter);
+            pred_waggle.y(idx)      = td.y(counter);
+            pred_waggle.angle(idx)  = td.angle(counter);
+            pred_waggle.c(idx)      = pred_waggleLabel(counter);
+            pred_waggle.frameID(idx)      = frame_index_pred;
+        end
+    end
+    
+    pred_waggle.x(td.frameID(end):td_gt.frameID(end)) = 0;
+    pred_waggle.y(td.frameID(end):td_gt.frameID(end)) = 0;
+    pred_waggle.angle(td.frameID(end):td_gt.frameID(end)) = 0;
+    pred_waggle.frameID(td.frameID(end):td_gt.frameID(end)) = td.frameID(end):td_gt.frameID(end);
+    pred_waggle.c(td.frameID(end):td_gt.frameID(end)) = 0;
+    
+    if numel(td.x) > numel(td_gt.x)
+        pred_waggle.x(td_gt.frameID(end)+1:td.frameID(end)) = [];
+        pred_waggle.y(td_gt.frameID(end)+1:td.frameID(end)) = [];
+        pred_waggle.angle(td_gt.frameID(end)+1:td.frameID(end)) = [];
+        pred_waggle.frameID(td_gt.frameID(end)+1:td.frameID(end)) = [];
+        pred_waggle.c(td_gt.frameID(end)+1:td.frameID(end)) = [];
+    end
+    td = pred_waggle;
+    predicted_labels = nan(numel(td.x),1);
+    for idx = 1:numel(td.x)
+        if ANGLE_DETECTION
+        if ((td.x(idx)*4 - td_gt.x(idx))^2 + (td.y(idx)*4 - td_gt.y(idx))^2)<beePixelSize^2 && td.angle(idx) > td_gt.angle(idx)-angleRange && td.angle(idx) < td_gt.angle(idx)+angleRange
             correctlyclassified = correctlyclassified +1;
             td_correctlyclassified.x(correctlyclassified) = td.x(idx)*4;
             td_correctlyclassified.y(correctlyclassified) = td.y(idx)*4;
-            td_correctlyclassified.ts(correctlyclassified) = td.ts(idx);
+            td_correctlyclassified.angle(correctlyclassified) = td.angle(idx);
+            td_correctlyclassified.frameID(correctlyclassified) = td.frameID(idx);
+            predicted_labels(idx) = 1;
         else
             missclassified = missclassified +1;
             td_missclassified.x(missclassified) = td.x(idx)*4;
             td_missclassified.y(missclassified) = td.y(idx)*4;
-            td_missclassified.ts(missclassified) = td.ts(idx);
+            td_missclassified.angle(missclassified) = td.angle(idx);
+            predicted_labels(idx) = 0;
+            td_missclassified.frameID(missclassified) = td.frameID(idx);
         end
-    end
-    for idx = 1:nFrameTotal
-        if find(td.ts==idx) > 0
-            oneHotEncodedLabels_td(idx) = 1;
         else
-            oneHotEncodedLabels_td(idx) = 0;
-        end
-    end
-    for idx = 1:nFrameTotal
-        if find(td_gt.frameID==idx) > 0
-            oneHotEncodedLabels_td_gt(idx) = 1;
+            if ((td.x(idx)*4 - td_gt.x(idx))^2 + (td.y(idx)*4 - td_gt.y(idx))^2)<beePixelSize^2
+            correctlyclassified = correctlyclassified +1;
+            td_correctlyclassified.x(correctlyclassified) = td.x(idx)*4;
+            td_correctlyclassified.y(correctlyclassified) = td.y(idx)*4;
+            td_correctlyclassified.angle(correctlyclassified) = td.angle(idx);
+            td_correctlyclassified.frameID(correctlyclassified) = td.frameID(idx);
+            predicted_labels(idx) = 1;
         else
-            oneHotEncodedLabels_td_gt(idx) = 0;
+            missclassified = missclassified +1;
+            td_missclassified.x(missclassified) = td.x(idx)*4;
+            td_missclassified.y(missclassified) = td.y(idx)*4;
+            td_missclassified.angle(missclassified) = td.angle(idx);
+            predicted_labels(idx) = 0;
+            td_missclassified.frameID(missclassified) = td.frameID(idx);
+        end
+            
+            
         end
     end
+    human_labelled_waggles      = [human_labelled_waggles;td_gt.c'];
+    algorithm_detected_waggles  = [algorithm_detected_waggles;predicted_labels];
 end
 
-correctlyLabeledPositives_TP = sum(and(oneHotEncodedLabels_td_gt,oneHotEncodedLabels_td),1);   % TP
-correctlyLabeledNegatives_TN = sum(and(~oneHotEncodedLabels_td_gt,~oneHotEncodedLabels_td),1); % TN
-wronglyLabeledPositives_FP = sum((oneHotEncodedLabels_td_gt == 1) & (oneHotEncodedLabels_td == 0)); % FP
-wronglyLabeledNegatives_FP = sum((oneHotEncodedLabels_td_gt == 0) & (oneHotEncodedLabels_td == 1)); % FN
-actualpositives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) > 0,1)); % TP+FN
-actualnegatives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) <  1,1)); % TN+FP
+label_postprocessing = [human_labelled_waggles algorithm_detected_waggles];
 
-%%%%%%%%%% FINAL EVALUATION %%%%%%%%%%
-%         sensitivity(file_index) = correctlyLabeledPositives_TP ./ actualpositives; % TP/TP+FN
-%         specificity(file_index) = correctlyLabeledNegatives_TN ./ actualnegatives; % TN/TN+FP
-%         precision(file_index) = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledPositives_FP);
-%         recall(file_index) = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledNegatives_FP);
-%         F1(file_index) = (2 * precision(file_index) * recall(file_index)) / (precision(file_index) + recall(file_index));
-%         informedness(file_index) = sensitivity(file_index) + specificity(file_index) - 1;
-%         accuracy(file_index) = (1 - missclassified/(missclassified + correctlyclassified))*100;
+[testingPresentations,numLabels]   = size(predicted_labels);
+[allObservation channels]          = size(predicted_labels);
 
-sensitivity     = correctlyLabeledPositives_TP ./ actualpositives % TP/TP+FN
-specificity     = correctlyLabeledNegatives_TN ./ actualnegatives % TN/TN+FP
-precision       = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledPositives_FP)
-recall          = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledNegatives_FP)
-F1              = (2 * precision * recall) / (precision + recall)
-informedness    = sensitivity + specificity - 1
-accuracy        = (1 - missclassified/(missclassified + correctlyclassified))*100
-%     end
-% end
+true_positive = sum(and(label_postprocessing(:,1),label_postprocessing(:,2)),1);  % TP
+true_negative = sum(and(~label_postprocessing(:,1),~label_postprocessing(:,2)),1); % TN
 
-figure(66);
-% subplot(2,2,1);
-plot(F1,"*-","LineWidth",2);grid on;hold on;
-plot(informedness,"s-","LineWidth",2);
-plot(sensitivity,"<-","LineWidth",2);
-plot(specificity,">-","LineWidth",2);
-title("Evaluation over all waggles recordings");
-xlabel("Threshold"); 
-ylim([0 1.25])
-xline(7,'-',{'Acceptable','Threshold'},"LineWidth",4);
-legend("F1-Score","Informedness","Sensitivity","Specificity");
-set(gca,'fontsize', 18);
+false_positive = sum((label_postprocessing(:,1) == 1) & (label_postprocessing(:,2) == 0)); % FP
+false_negative = sum((label_postprocessing(:,1) == 0) & (label_postprocessing(:,2) == 1)); % FN
+
+groundtruth = human_labelled_waggles;
+actualpositives = numel(groundtruth(groundtruth > 0,1));  % TP+FN
+actualnegatives = numel(groundtruth(groundtruth <  1,1)); % TN+FP
+
+confusion_matrix = [true_positive false_positive ; false_negative true_negative]
+
+sensitivity = true_positive ./ actualpositives % TP/TP+FN
+specificity = true_negative ./ actualnegatives % TN/TN+FP
+precision = true_positive / (true_positive + false_positive)
+recall = true_positive / (true_positive + false_negative)
+F1 = (2 * precision * recall) / (precision + recall)
+informedness = sensitivity + specificity - 1
+accuracy = (1 - missclassified/testingPresentations)*100
+
+figure(676723);confusionchart(confusion_matrix,'RowSummary','row-normalized','ColumnSummary','column-normalized');
+
+% figure(66);
+% % subplot(2,2,1);
+% plot(F1,"*-","LineWidth",2);grid on;hold on;
+% plot(informedness,"s-","LineWidth",2);
+% plot(sensitivity,"<-","LineWidth",2);
+% plot(specificity,">-","LineWidth",2);
+% title("Evaluation over all waggles recordings");
+% xlabel("Threshold"); 
+% ylim([0 1.25])
+% xline(7,'-',{'Acceptable','Threshold'},"LineWidth",4);
+% legend("F1-Score","Informedness","Sensitivity","Specificity");
+% set(gca,'fontsize', 18);
 
 % subplot(2,2,2);
 % plot(informedness,"LineWidth",2);grid on;
@@ -380,3 +459,128 @@ set(gca,'fontsize', 18);
 % hold on;
 % xline(7,'-',{'Acceptable','Threshold'},"LineWidth",4);
 % set(gca,'fontsize', 18);
+
+%% Evaluate angle detection
+videoFileName = "final_labels/20210803t1727d200m_cropped/20210803t1727d200m_croppedv2.MP4";
+load('final_labels/20210803t1727d200m_cropped/20210803t1727d200m_ground_truth.mat')
+load('final_labels/20210803t1727d200m_cropped/20210803t1727d200m_cropped_TD_25x25Template.mat')
+v0 = VideoReader(videoFileName);
+nFrameTotal = round(v0.FrameRate *v0.Duration);
+
+% nFrameTotal = 2400;
+beePixelSize            = 70;
+angleRange              = 20;
+missclassified          = 0;
+correctlyclassified     = 0;
+td_missclassified       = [];
+td_correctlyclassified  = [];
+
+for idx = 1:numel(td.x)
+    if ((td.x(idx)*4 - td_gt.x(idx))^2 + (td.y(idx)*4 - td_gt.y(idx))^2)<beePixelSize^2 && td.angle(idx) > td_gt.angle(idx)-angleRange && td.angle(idx) < td_gt.angle(idx)+angleRange
+        correctlyclassified = correctlyclassified +1;
+        td_correctlyclassified.x(correctlyclassified) = td.x(idx)*4;
+        td_correctlyclassified.y(correctlyclassified) = td.y(idx)*4;
+        td_correctlyclassified.ts(correctlyclassified) = td.ts(idx);
+        td_correctlyclassified.angle(correctlyclassified) = td.angle(idx);
+        td_correctlyclassified.frameID(correctlyclassified) = td.frameID(idx);
+    else
+        missclassified = missclassified +1;
+        td_missclassified.x(missclassified) = td.x(idx)*4;
+        td_missclassified.y(missclassified) = td.y(idx)*4;
+        td_missclassified.angle(missclassified) = td.y(idx)*4;
+        td_missclassified.ts(missclassified) = td.ts(idx);
+    end
+end
+
+oneHotEncodedLabels_td    = nan(nFrameTotal,1); %sequence
+oneHotEncodedLabels_td_gt = nan(nFrameTotal,1); %sequence
+
+for idx = 1:nFrameTotal
+    if find(td.ts==idx) > 0
+        oneHotEncodedLabels_td(idx) = 1;
+    else
+        oneHotEncodedLabels_td(idx) = 0;
+    end
+end
+
+for idx = 1:nFrameTotal
+    if find(td_gt.frameID==idx) > 0
+        oneHotEncodedLabels_td_gt(idx) = 1;
+    else
+        oneHotEncodedLabels_td_gt(idx) = 0;
+    end
+end
+
+correctlyLabeledPositives_TP = sum(and(oneHotEncodedLabels_td_gt,oneHotEncodedLabels_td),1);   % TP
+correctlyLabeledNegatives_TN = sum(and(~oneHotEncodedLabels_td_gt,~oneHotEncodedLabels_td),1); % TN
+
+wronglyLabeledPositives_FP = sum((oneHotEncodedLabels_td_gt == 1) & (oneHotEncodedLabels_td == 0)); % FP
+wronglyLabeledNegatives_FP = sum((oneHotEncodedLabels_td_gt == 0) & (oneHotEncodedLabels_td == 1)); % FN
+
+actualpositives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) > 0,1)); % TP+FN
+actualnegatives = numel(oneHotEncodedLabels_td_gt(oneHotEncodedLabels_td_gt(:,1) <  1,1)); % TN+FP
+
+confusion_matrix = [correctlyLabeledPositives_TP wronglyLabeledPositives_FP ; wronglyLabeledNegatives_FP correctlyLabeledNegatives_TN]
+
+sensitivity = correctlyLabeledPositives_TP ./ actualpositives % TP/TP+FN
+specificity = correctlyLabeledNegatives_TN ./ actualnegatives % TN/TN+FP
+precision = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledPositives_FP)
+recall = correctlyLabeledPositives_TP / (correctlyLabeledPositives_TP + wronglyLabeledNegatives_FP)
+F1 = (2 * precision * recall) / (precision + recall)
+informedness = sensitivity + specificity - 1
+accuracy = (1 - missclassified/(numel(td.x)))*100
+% accuracy = (1 - missclassified/(missclassified + correctlyclassified))*100
+
+
+figure(66);
+subplot(4,2,[1 3])
+scatter3(td.x*4,td.y*4,td.ts,'.r');hold on
+scatter3(td_gt.x,td_gt.y,td_gt.frameID,'.b');
+plot3(td_gt.x,td_gt.y,td_gt.frameID, 'bo', 'MarkerSize', 2);
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("#Frames");
+title("Detected waggles");
+xlim([min(td_gt.x)-150 max(td_gt.x)+150]);
+ylim([min(td_gt.y)-150 max(td_gt.y)+150]);
+zlim([0 numel(td_gt.y)]);
+legend([{'Detected Waggles'},{'Labelled Waggles'}]);
+set(gca,'fontsize', 14)
+subplot(4,2,[2 4])
+scatter3(td_correctlyclassified.x,td_correctlyclassified.y,td_correctlyclassified.ts,'.r');hold on
+scatter3(td_missclassified.x,td_missclassified.y,td_missclassified.ts,'.k');
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("#Frames");
+xlim([min(td_gt.x)-150 max(td_gt.x)+150]);
+ylim([min(td_gt.y)-150 max(td_gt.y)+150]);
+zlim([0 numel(td_gt.y)]);
+title("F1-Score: " + F1 + "%");
+legend([{'Correctly Detected Waggles'},{'Wrongly Detected Waggles'}]);
+set(gca,'fontsize', 14);
+subplot(4,2,[5 6]);
+plot(td_correctlyclassified.frameID,td_correctlyclassified.x,'-r');hold on;grid on
+plot(td_gt.x,'-b');
+xlabel("#Frames");
+ylabel("X [px]");
+title("Across X");
+legend("Correctly Detected Waggle","Ground truth");
+subplot(4,2,[7 8]);
+plot(td_correctlyclassified.frameID,td_correctlyclassified.y/1.05,'-r');hold on;grid on
+plot(td_gt.y,'-b');
+xlabel("#Frames");
+ylabel("Y [px]");
+title("Across Y");
+legend("Correctly Detected Waggle","Ground truth");
+
+figure(67);
+scatter3(td_correctlyclassified.x,td_correctlyclassified.y,td_correctlyclassified.ts,'.r');hold on;grid on
+scatter3(td_gt.x,td_gt.y,td_gt.frameID,'.b');
+xlim([100 800]);
+ylim([200 900]);
+zlim([0 3000]);
+xlabel("X [px]");
+ylabel("Y [px]");
+zlabel("#Frames");
+set(gca,'fontsize', 14);
+
