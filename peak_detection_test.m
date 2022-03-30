@@ -2,8 +2,8 @@ clear
 tic;
 addpath("../DeepGreen/greenhouseCode")
 
-videoFileName = "./final_labels/20210803t1259d050m_cropped/20210803t1259d050m_cropped.MP4";
-load('./final_labels/20210803t1259d050m_cropped/20210803t1259d050m_cropped_ground_truth.mat');
+videoFileName = "./final_labels/20210803t1719d200m_cropped/20210803t1719d200m_cropped.MP4";
+load('./final_labels/20210803t1719d200m_cropped/20210803t1719d200m_cropped_ground_truth.mat');
 
 % videoFileName = "./input_videos/20210803t1301d050m_cropped.MP4";
 % load('./final_labels/20210803t1301d050m_cropped/20210803t1301d050m_cropped_ground_truth.mat');
@@ -35,19 +35,19 @@ convMapThreshold            = 15;
 nEventsForWaggleThreshold   = 6;
 nDel                        = 18;
 nTemplate                   = size(waggleTemplate,3);
-nFrameTotal                 = round(v0.FrameRate *v0.Duration);
-numberofSegment             = 20;
+nFrameTotal                 = round(v0.FrameRate *v0.Duration)+1;
+numberofSegment             = 10;
 framesPerSegment            = nFrameTotal/numberofSegment;
 nSegment                    = ceil(nFrameTotal/framesPerSegment);
 AllFrames = 0;
 
-writerObj = VideoWriter('./output_videos/peak_detector_working_algorithm2.avi');
-writerObj.FrameRate = 10;
-open(writerObj);
+% writerObj = VideoWriter('./output_videos/peak_detector_working_algorithm2.avi');
+% writerObj.FrameRate = 10;
+% open(writerObj);
 
 segFrame = 0;
 for iSegment = 1:numberofSegment
-    if iSegment < 4
+    if iSegment < numberofSegment
         iSegment
         
         iFrame = 0;
@@ -236,44 +236,44 @@ for iSegment = 1:numberofSegment
 
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            figure(6756);
+%             figure(6756);
             pixelBoundries = 40;
             peakThreshold  = 7e2;
-            subplot(2,4,[1 4])
-            plot(movmean(waggleConvResultMaxedVal(:),20));grid on
-            [value_row_new,location_row_new]=findpeaks(movmean(waggleConvResultMaxedVal(:),20),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');
-            findpeaks(movmean(waggleConvResultMaxedVal(:),20),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');
-            text(location_row_new+.02,double(value_row_new),num2str((1:numel(double(value_row_new)))'));
+%             subplot(2,4,[1 4])
+%             plot(movmean(waggleConvResultMaxedVal(:),20));grid on
+            [value_row_new,location_row_new]=findpeaks(waggleConvResultMaxedVal(:),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');
+%             findpeaks(waggleConvResultMaxedVal(:),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');
+%             text(location_row_new+.02,double(value_row_new),num2str((1:numel(double(value_row_new)))'));
             if ~isempty(value_row_new)
                 yline(value_row_new(1) - peakThreshold,"LineWidth",2);
             end
-            subplot(2,4,5)
-            imagesc(uint8(frameArray(:,:,:,iFrame)));
-            subplot(2,4,6)
+%             subplot(2,4,5)
+%             imagesc(uint8(frameArray(:,:,:,iFrame)));
+%             subplot(2,4,6)
             if ~isempty(value_row_new)
                 if value_row_new(1) > value_row_new(1) - peakThreshold
                     waggleConvThreshed = waggleConvResultMaxedVal>value_row_new(1)-peakThreshold;
                     [iRow, iCol, ~] = find(waggleConvThreshed>0);
-                    imagesc(waggleConvThreshed);colorbar
+%                     imagesc(waggleConvThreshed);colorbar
                 else
                     waggleConvThreshed = 0;
-                    imagesc(waggleConvThreshed);colorbar;
+%                     imagesc(waggleConvThreshed);colorbar;
                 end
             else
                 waggleConvThreshed = 0;
-                imagesc(waggleConvThreshed);colorbar;
+%                 imagesc(waggleConvThreshed);colorbar;
             end
-            subplot(2,4,7)
-            x_coor = 0:size(waggleConvResultMaxedVal,2)-1;
-            y_coor = 0:size(waggleConvResultMaxedVal,1)-1;
-            [X,Y] = meshgrid(x_coor,y_coor);
-            meshc(X, Y, waggleConvResultMaxedVal);
-            subplot(2,4,8)
-            imagesc(waggleConvResultMaxedVal);colorbar;hold on
+%             subplot(2,4,7)
+%             x_coor = 0:size(waggleConvResultMaxedVal,2)-1;
+%             y_coor = 0:size(waggleConvResultMaxedVal,1)-1;
+%             [X,Y] = meshgrid(x_coor,y_coor);
+%             meshc(X, Y, waggleConvResultMaxedVal);
+%             subplot(2,4,8)
+%             imagesc(waggleConvResultMaxedVal);colorbar;hold on
             if ~isempty(iRow) && ~isempty(iCol)
                 coordinate_points = find(iCol-pixelBoundries>0 & iCol+pixelBoundries<size(waggleConvThreshed,2) & iRow-pixelBoundries>0 & iRow+pixelBoundries<size(waggleConvThreshed,2));
-                plot(iCol(coordinate_points),iRow(coordinate_points),'+r');
-                plot(round(mean(iCol(coordinate_points))),round(mean(iRow(coordinate_points))),'og','MarkerSize',14);
+%                 plot(iCol(coordinate_points),iRow(coordinate_points),'+r');
+%                 plot(round(mean(iCol(coordinate_points))),round(mean(iRow(coordinate_points))),'og','MarkerSize',14);
                 td.x(AllFrames)  = round(mean(iCol(coordinate_points)));
                 td.y(AllFrames)  = round(mean(iRow(coordinate_points)));
                 td.waggleregionx{AllFrames} = iCol(coordinate_points);
@@ -290,8 +290,8 @@ for iSegment = 1:numberofSegment
 %                 td.y(AllFrames) = 0;
 %             end
             
-            F = getframe(gcf) ;
-            writeVideo(writerObj, F);
+%             F = getframe(gcf) ;
+%             writeVideo(writerObj, F);
 
 %             figure(657);
 %             subplot(2,3,1)
@@ -308,26 +308,27 @@ for iSegment = 1:numberofSegment
 end
 
 figure(6565);
-scatter3(td.x*4,td.y*4,td.ts,'.r');hold on
+scatter3(td.x*2,td.y*2,td.ts,'.r');hold on
 scatter3(td_gt.x,td_gt.y,td_gt.frameID,'.b');
 xlabel("X [px]");
 ylabel("Y [px]");
 zlabel("#Frames");
 
-% figure(670);
-% findNewCoordinate = find(td.x*4>500 & td.x*4 < 800 & td.y*4>600 & td.y*4 < 900);
-% scatter3(td.x(findNewCoordinate)*4,td.y(findNewCoordinate)*4,td.ts(findNewCoordinate),'.r');
-% xlabel("X [px]");
-% ylabel("Y [px]");
-% zlabel("#Frames");
-% xlim([0 max(td.x)*4]);
-% ylim([0 max(td.y)*4]);
+% close(writerObj);
+% fprintf('Sucessfully generated the video\n')
 
-close(writerObj);
-fprintf('Sucessfully generated the video\n')
+% X = [iCol(coordinate_points) iRow(coordinate_points)];
+% figure(567);
+% subplot(2,1,1)
+% plot(X(:,1),X(:,2),'+r');grid on
+% opts = statset('Display','final');
+% [idx,C] = kmeans(X,2,'Distance','cityblock','Replicates',5,'Options',opts);
+% subplot(2,1,2)
+% plot(X(:,1),X(:,2),'r.','MarkerSize',12);hold on
+% plot(C(:,1),C(:,2),'kx','MarkerSize',15,'LineWidth',3) 
+% legend('Cluster 1','Cluster 2','Cluster 3','Centroids','Location','NW');grid on;hold off
 
 %%
-
 tic;
 addpath("../DeepGreen/greenhouseCode")
 
@@ -335,17 +336,20 @@ addpath("../DeepGreen/greenhouseCode")
 % videoName = "20210803t1727d200m";
 % dataPATH = "input_videos/20210803t1259d050m_cropped";
 
-videoFileName = "./input_videos/20210803t1727d200m_cropped.MP4";
-load('./final_labels/20210803t1727d200m_cropped/20210803t1727d200m_cropped_ground_truth.mat');
-load('./td_out/20210803t1727d200m_cropped_PeakDetection2.mat');
-td.x(isnan(td.x))=0;
-td.y(isnan(td.y))=0;
-findNewCoordinate = find(td.x*4>500 & td.x*4 < 800 & td.y*4>600 & td.y*4 < 900);
-td.x = td.x(findNewCoordinate);
-td.y = td.y(findNewCoordinate);
-td.waggleregionx = td.waggleregionx(findNewCoordinate);
-td.waggleregiony = td.waggleregiony(findNewCoordinate);
-td.ts = td.ts(findNewCoordinate);
+videoFileName = "./input_videos/20210803t1259d050m_cropped.MP4";
+load('./final_labels/20210803t1259d050m_cropped/20210803t1259d050m_cropped_ground_truth.mat');
+load('/media/sam/Samsung_T5/MPhil/Code/bee_tracking/data/integration/track_id_all.mat')
+% load('./td_out/20210803t1727d200m_cropped_PeakDetection2.mat');
+load('waggle36Templates_25x25_HQ.mat');
+
+% td.x(isnan(td.x))=0;
+% td.y(isnan(td.y))=0;
+% findNewCoordinate = find(td.x*4>500 & td.x*4 < 800 & td.y*4>600 & td.y*4 < 900);
+% td.x = td.x(findNewCoordinate);
+% td.y = td.y(findNewCoordinate);
+% td.waggleregionx = td.waggleregionx(findNewCoordinate);
+% td.waggleregiony = td.waggleregiony(findNewCoordinate);
+% td.ts = td.ts(findNewCoordinate);
 
 v0 = VideoReader(videoFileName);
 
@@ -360,6 +364,7 @@ iWaggleEvent                = 0;
 frameID                     = 0;
 avgFrameDepth               = 6;
 convMapThreshold            = 15;
+nTemplate                   = size(waggleTemplate,3);
 nEventsForWaggleThreshold   = 6;
 nDel                        = 18;
 nFrameTotal                 = round(v0.FrameRate *v0.Duration);
@@ -368,13 +373,14 @@ framesPerSegment            = nFrameTotal/numberofSegment;
 nSegment                    = ceil(nFrameTotal/framesPerSegment);
 radius                      = 15;
 
-writerObj = VideoWriter('./output_videos/peak_detection_output.avi');
-writerObj.FrameRate = 10;
-open(writerObj);
+% writerObj = VideoWriter('./output_videos/20210803t1259d050m_cropped_convolution_on_the_original_frame.avi');
+% writerObj.FrameRate = 30;
+% open(writerObj);
 
 segFrame = 0;
 for iSegment = 1:numberofSegment
-    if iSegment > 4 && iSegment < 7
+%     if iSegment > 4 && iSegment < 6
+    if iSegment < numberofSegment
         iSegment
         iFrame = 0;
         
@@ -404,62 +410,77 @@ for iSegment = 1:numberofSegment
             end
         end
         
+        waggleConvResult = zeros(round(imageHeight/2),round(imageWidth/2),nTemplate,'single');
+        waggleConvFinalMaxed =  zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        
+        newframe =  zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        blurredImage =  zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        meanWaggleMapFrame = zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        newImagePixel = zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        final_frame = zeros(round(imageHeight/2),round(imageWidth/2),nFrame,'single');
+        
         for iFrame = 1:nFrame
-            figure(2);
-            imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;hold on
-            title( num2str(iFrame),'color','r','fontSize',14);
-            if ~isempty(td.waggleregionx) && ~isempty(td.waggleregiony)
-                plot(td.waggleregionx{1,iFrame}(:),td.waggleregiony{1,iFrame}(:),'+r');
+            newframe(:,:,iFrame)            = rgb2gray(frameArray(:,:,:,iFrame));
+        end
+        
+        avgFrameDepth = 10;
+        for iFrame = 1:nFrame
+%             newframe(:,:,iFrame)            = rgb2gray(frameArray(:,:,:,iFrame));
+            blurredImage(:,:,iFrame)        = imgaussfilt(newframe(:,:,iFrame),5);
+            meanWaggleMapFrame(:,:,iFrame)  = mean(blurredImage(:,:,max(iFrame-avgFrameDepth,1):iFrame),3);
+            newImagePixel(:,:,iFrame)       = 0.9*meanWaggleMapFrame(:,:,iFrame) + 0.1*blurredImage(:,:,iFrame);
+            newImagePixelDecayed            = 0.9*newImagePixel(:,:,iFrame);
+            final_frame(:,:,iFrame)         = newframe(:,:,iFrame)./(newImagePixelDecayed+1);
+            
+            figure(67868);
+            imagesc(uint8(frameInt));axis image;hold on
+            for idx = 1:numel(td.beeTrajectory)
+                [X,Y] = calculateEllipse(td.beeTrajectory{idx,1}(iFrame,1),td.beeTrajectory{idx,1}(iFrame,2),25,10,round(td.beeTrajectory{idx,1}(iFrame,3)));
+                plot(X, Y,'LineWidth',2);
             end
-%             rectangle('Position',[td.x(iFrame) td.y(iFrame) radius radius],'Curvature',[1 1],'FaceColor',[1 0 0],'EdgeColor','k',...
-%                 'LineWidth',1);axis equal
+%             plot(beeTrajectory(1,iFrame),beeTrajectory(2,iFrame),'or','MarkerSize',35);
             
-            F = getframe(gcf);
-            writeVideo(writerObj, F);
+%             figure(6768);
+%             subplot(4,3,1);imagesc(newframe(:,:,iFrame));title("Greyscale");colorbar;
+%             subplot(4,3,2);imagesc(blurredImage(:,:,iFrame));title("f: Blurred");colorbar;
+%             subplot(4,3,3);imagesc(meanWaggleMapFrame(:,:,iFrame));title("M: Average map");colorbar;
+%             subplot(4,3,4);imagesc(newImagePixel(:,:,iFrame));title("M: 0.9*M + 0.1f");colorbar;
+%             subplot(4,3,5);imagesc(newImagePixelDecayed);title("M_n: 0.99*M");colorbar;
+%             subplot(4,3,6);imagesc(final_frame(:,:,iFrame));caxis([0,5]);colorbar;title("greyscale/M_n");
+%             subplot(4,3,[7 9]);blurredImage_new = blurredImage(:,:,iFrame);findpeaks(blurredImage_new(:),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');
+%             [value_row_new,location_row_new]=findpeaks(blurredImage_new(:),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');title("Flattened before");
+%             text(location_row_new+.02,double(value_row_new),num2str((1:numel(double(value_row_new)))'));
+%             subplot(4,3,[10 12]);
+%             findpeaks(newImagePixelDecayed(:),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');
+%             [value_row_decayed,location_row_decayed]=findpeaks(newImagePixelDecayed(:),'MinPeakDistance',4000,'Annotate','extents','SortStr','descend');title("Flattened before");
+%             text(location_row_decayed+.02,double(value_row_decayed),num2str((1:numel(double(value_row_decayed)))'));
             
-            %             for i=1:100
-            %             subplot(1,2,1)
+%             for iTemplate = 1:nTemplate
+%                 waggleConvResult(:,:,iTemplate) = conv2(final_frame(:,:,iFrame),waggleTemplate(:,:,iTemplate),'same');
+%             end
+%             [waggleConvResultMaxedVal, waggleTemplateIdx ]= max(waggleConvResult,[],3);
+%             waggleConvFinalMaxed(:,:,iFrame) = max(waggleConvResult,[],3);
+%             
+%             figure(5670);
+%             subplot(1,2,1)
+%             imagesc(final_frame(:,:,iFrame));caxis([0,5]);colorbar;
+%             subplot(1,2,2)
+%             imagesc(waggleConvFinalMaxed(:,:,iFrame));
+%             colorbar;caxis([0,50000]);axis off;
             
-            %             subplot(1,2,2)
-            %                 scatter3(td.x*4,td.y*4,td.ts,'.r');
-            %                 p=plot3(td.x*4,td.y*4,td.ts,'.r');
-            %                 xlabel("X [px]");
-            %                 ylabel("Y [px]");
-            %                 zlabel("#Frames");
-            %
-            %                 direction = [0 0 1];
-            %                 rotate(p,direction,10);
-            %                 x = p.XData;
-            %                 y = p.YData;
-            %                 z = p.ZData;
-            %                 figure(2);
-            %                 scatter3(x,y,z,'.r');
-            %                 pause(0.1);
+%             figure(2);
+%             imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;hold on
+%             title( num2str(iFrame),'color','r','fontSize',14);
+%             if ~isempty(td.waggleregionx) && ~isempty(td.waggleregiony)
+%                 plot(td.waggleregionx{1,iFrame}(:),td.waggleregiony{1,iFrame}(:),'+r');
+%             end
             
-                            
-            %             end
+%             F = getframe(gcf);
+%             writeVideo(writerObj, F);
+%             
         end
     end
 end
 
-close(writerObj);
-fprintf('Sucessfully generated the video\n')
-%%
-figure(2);
-[X,Y,Z] = sphere(16);
-x = [0.5*X(:); 0.75*X(:); X(:)];
-y = [0.0*Y(:); 0.0*Y(:); Y(:)];
-z = [0.0*Z(:); 0.0*Z(:); Z(:)];
-
-for i=1:100
-    scatter3(x,y,z);
-    p = plot3(x,y,z);
-    direction = [0 0 1];
-    rotate(p,direction,10);
-    x = p.XData;
-    y = p.YData;
-    z = p.ZData;
-    figure(2);
-    scatter3(x,y,z);
-    pause(0.1);
-end
+% close(writerObj);
+% fprintf('Sucessfully generated the video\n')
