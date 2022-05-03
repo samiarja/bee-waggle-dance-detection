@@ -132,9 +132,9 @@ tic;
 % videoName = "20210803t1727d200m";
 % dataPATH = "input_videos/20210803t1259d050m_cropped";
 
-dataPATH = "./final_labels/20210803t1508d100m_cropped/";
-load(dataPATH + '20210803t1508d100m_ground_truth.mat')
-videoFileName = dataPATH + "20210803t1508d100m_cropped.MP4";
+dataPATH = "/media/sam/Samsung_T5/PhD/Code/bee-waggle-dance-detection/final_labels/20210803t1259d050m_cropped/";
+load(dataPATH + '20210803t1259d050m_cropped_ground_truth.mat')
+videoFileName = dataPATH + "20210803t1259d050m_cropped.MP4";
 
 % limits.rowStart    = 401;    limits.rowEnd      = 1000;    limits.colStart    = 201;    limits.colEnd      = 1700;
 % limits.rowStart    = 1;    limits.rowEnd      = 800;    limits.colStart    = 1;    limits.colEnd      = 800;
@@ -162,14 +162,14 @@ convMapThreshold            = 30;
 nEventsForWaggleThreshold   = 6;
 nDel                        = 18;
 nTemplate                   = size(waggleTemplate,3);
-nFrameTotal                 = round(v0.FrameRate *v0.Duration)+2;
+nFrameTotal                 = round(v0.FrameRate *v0.Duration);
 numberofSegment             = 10;
 framesPerSegment            = nFrameTotal/numberofSegment;
 nSegment                    = ceil(nFrameTotal/framesPerSegment);
 
-% writerObj = VideoWriter('./output_videos/simulation_20210803t1727d200m_detection_template_70x70_10fps.avi');
-% writerObj.FrameRate = 10;
-% open(writerObj);
+writerObj = VideoWriter('./output_videos/20210803t1259d050m_cropped_conv2D.avi');
+writerObj.FrameRate = 10;
+open(writerObj);
 
 % [nSubplotRows,nSubplotCols] = goodSubPlotRowCols(nTemplate);
 % bee_angle_rotation = 0;
@@ -184,7 +184,7 @@ nSegment                    = ceil(nFrameTotal/framesPerSegment);
 
 segFrame = 0;
 for iSegment = 1:numberofSegment
-    if iSegment < numberofSegment
+    if iSegment < 6
         iSegment
         
         iFrame = 0;
@@ -325,7 +325,7 @@ for iSegment = 1:numberofSegment
             [row_coor, col_coor, ~] = find(waggleConvResultMaxedVal>convolutionMapThreshold);
             
             
-%                         figure(5656);
+            figure(5656);
             %             subtightplot(3,3,1);
             %             imh1 =  imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;colorbar; title("Input frames");colormap('gray');
             %             title(num2str(iFrame),'color','r','fontSize',14);
@@ -339,22 +339,22 @@ for iSegment = 1:numberofSegment
             %             imh4 =  imagesc( meanWaggleMapFrame  );axis image;  colorbar;title("Moving average");colormap('gray');
             %             caxis([0 150] )
             %             subtightplot(3,3,5);
-%                         imh5 =  imagesc(waggleConvResultMaxedVal );axis image;  colorbar;title("2D convolution waggle map");colormap('gray');
-%                         caxis([0 5e5]);
+            imh5 =  imagesc(waggleConvResultMaxedVal );axis image;  colorbar;colormap('gray');%title("2D convolution waggle map");
+            caxis([0 5e5]);
             
-%                         subtightplot(3,3,6);
-%                         imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;title("Threshold waggle map");colormap('gray');
+            %                         subtightplot(3,3,6);
+            %                         imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;title("Threshold waggle map");colormap('gray');
             %             caxis([0 1] )
             %             subtightplot(3,3,8);
-%                         imh7 =  imagesc(waggleDetectionMap);axis image;  colorbar;title("Detected waggle map");colormap('gray');
+            %                         imh7 =  imagesc(waggleDetectionMap);axis image;  colorbar;title("Detected waggle map");colormap('gray');
             %             %             caxis([0 1] )
             %             set(gcf,'Position',[100 100 1000 1000]);
-            %
-            %             F = getframe(gcf) ;
-            %             writeVideo(writerObj, F);
+            
+            F = getframe(gcf) ;
+            writeVideo(writerObj, F);
             
             
-            if ~isempty(r) && (c-rad25>0) && (c+rad25<size(dGreyScaleArray,2)) && (r-rad25>0) && (r+rad25<size(dGreyScaleArray,1)) 
+            if ~isempty(r) && (c-rad25>0) && (c+rad25<size(dGreyScaleArray,2)) && (r-rad25>0) && (r+rad25<size(dGreyScaleArray,1))
                 iWaggleEvent = iWaggleEvent + 1;
                 waggleRegion  = frameArray(r-rad25:r+rad25,c-rad25:c+rad25,:,iFrame);
                 dwaggleRegion = dGreyScaleArray(r-rad25:r+rad25,c-rad25:c+rad25,iFrame);
@@ -444,8 +444,8 @@ for iSegment = 1:numberofSegment
     end
 end
 
-% close(writerObj);
-% fprintf('Sucessfully generated the video\n');
+close(writerObj);
+fprintf('Sucessfully generated the video\n');
 
 figure(6565);
 scatter3(td.x*4,td.y*4,td.ts,'.r');hold on

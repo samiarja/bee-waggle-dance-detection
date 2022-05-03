@@ -2,7 +2,8 @@
 % PATH = "final_labels/20210803t1259d050m_cropped/"; % no linear interpolation
 % PATH = "final_labels/20210803t1508d100m_cropped/";   % with linear interpolation
 % PATH = "final_labels/20210803t1719d200m_cropped/";   % with linear interpolation
-PATH = "DenseObjectAnnotation/static/"; % with linear interpolation
+PATH = "final_labels/20210803t1732d200m_cropped_W1/";   % with linear interpolation
+% PATH = "DenseObjectAnnotation/static/"; % with linear interpolation
 
 INTERPOLATE = 1;
 frames=dir(PATH + "png/*.png");
@@ -30,17 +31,18 @@ if INTERPOLATE
         LabelNames_after=labels(k+1).name;
         iWaggleEvent = iWaggleEvent + 1;
         labelID_before = fileread(PATH + "txt/" + LabelNames_before);
-        datacell_before = textscan(labelID_before, '%f%f', 'Delimiter',',', 'CollectOutput', 1);
-        
-        x_coor_before = datacell_before{1}(1);
-        y_coor_before = datacell_before{1}(3);
-        angle_before  = datacell_before{1}(4);
+        datacell_before = textscan(labelID_before, '%f%f%f%f', 'Delimiter',',', 'CollectOutput', 1);
         
         labelID_after = fileread(PATH + "txt/" + LabelNames_after);
-        datacell_after = textscan(labelID_after, '%f%f', 'Delimiter',',', 'CollectOutput', 1);
-        x_coor_after = datacell_after{1}(1);
-        y_coor_after = datacell_after{1}(3);
-        angle_after  = datacell_after{1}(4);
+        datacell_after = textscan(labelID_after, '%f%f%f%f', 'Delimiter',',', 'CollectOutput', 1);
+        
+        x_coor_before = datacell_before{1}(1,1);
+        y_coor_before = datacell_before{1}(1,2);
+        angle_before  = datacell_before{1}(1,4);
+        
+        x_coor_after = datacell_after{1}(1,1);
+        y_coor_after = datacell_after{1}(1,2);
+        angle_after  = datacell_after{1}(1,4);
         
         x_coor = linspace(x_coor_before, x_coor_after, numberofpoints);
         y_coor = linspace(y_coor_before, y_coor_after, numberofpoints);
@@ -61,7 +63,7 @@ frameIDNAN = find(isnan(td_gt.x));
 td_gt.x(frameIDNAN(1):end) = [];
 td_gt.y(frameIDNAN(1):end,:) = [];
 td_gt.angle(frameIDNAN(1):end,:) = [];
-td_gt.frameID = (215:215+frameIDNAN(1)-2)';
+td_gt.frameID = (firstFrameLabel:firstFrameLabel+frameIDNAN(1)-2)';
 
 % for k=1:numel(td_gt.x)
 %     FrameNames=frames(firstFrameLabel+k).name;
@@ -104,21 +106,13 @@ else
     % fprintf('Sucessfully generated the video\n')
 end
 
-figure(57);
+figure(60);
 timestamp = 1:numel(td_gt.x);
 scatter3(td_gt.x,td_gt.y,timestamp,'.');
-plot3(td_gt.x,td_gt.y,timestamp,'-','LineWidth',2)
+% plot3(td_gt.x,td_gt.y,timestamp,'-','LineWidth',2)
 xlabel("X [px]");
 ylabel("Y [px]");
 zlabel("#Frame");
 title("Bee Waggle Trajectory - Ground Truth");
 grid on;
 set(gca,'fontsize', 16);
-
-%% testing linear interpolation
-startvalue = 524;
-endvalue = 600;
-numberofpoints = 2; %includes start and end point
-x = linspace(startvalue, endvalue, numberofpoints)
-
-beeTrajectory_new = reshape(beeTrajectory,[],1)

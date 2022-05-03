@@ -4,12 +4,15 @@ tic;
 %%%%%%%%%%%%%%%% LOAD VIDEO
 
 % videoName = "20210803t1727d200m";
-dataPATH = "input_videos/20210803t1727d200m_cropped";
-videoFileName = "./input_videos/" + dataPATH + ".MP4";
+dataPATH = "/media/sam/Samsung_T5/PhD/Code/bee-waggle-dance-detection/final_labels/20210803t1259d050m_cropped/";
+load(dataPATH + '20210803t1259d050m_cropped_ground_truth.mat')
+videoFileName = dataPATH + "20210803t1259d050m_cropped.MP4";
+
 % limits.rowStart    = 401;    limits.rowEnd      = 1000;    limits.colStart    = 201;    limits.colEnd      = 1700;
 % limits.rowStart    = 1;    limits.rowEnd      = 800;    limits.colStart    = 1;    limits.colEnd      = 800;
-v0 = VideoReader(dataPATH + ".MP4");
+v0 = VideoReader(videoFileName);
 disp("Loading data...")
+
 
 %%%%%%%%%%%%%%%% LOAD TEMPLATE
 load('waggle16Templates_v1.mat')
@@ -33,7 +36,7 @@ framesPerSegment            = nFrameTotal/numberofSegment;
 nSegment                    = ceil(nFrameTotal/framesPerSegment);
 AllFrames = 0;
 
-writerObj = VideoWriter('./output_videos/simulation_20210803t1727d200m_cropped_bee_waggles_10fps_cropped_new2.avi');
+writerObj = VideoWriter('/media/sam/Samsung_T5/PhD/Code/bee-waggle-dance-detection/output_videos/20210803t1259d050m_cropped_2dconv.avi');
 writerObj.FrameRate = 30;
 open(writerObj);
 
@@ -174,28 +177,28 @@ for iSegment = 1:numberofSegment
             [r, c, ~] = find(waggleConvThreshedMaxed>0);
             
             figure(567);
-            subtightplot(3,3,1);
-            imh1 =  imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;colorbar; title("Input frames");colormap('gray');
-            title(num2str(iFrame),'color','r','fontSize',14);
-            subtightplot(3,3,2);
-            imhx =  imagesc(dGreyScaleArray(:,:,iFrame));axis image;  colorbar; title("Normalised framediff");colormap('gray');
-            caxis([-70 70] )
-            subtightplot(3,3,3);
-            imh3 =  imagesc(waggleMapMaxed(:,:,iFrame));axis image;colorbar;title("1D convolution");colormap('gray');
-            caxis([0 50] )
-            subtightplot(3,3,4);
-            imh4 =  imagesc( meanWaggleMapFrame  );axis image;  colorbar;title("Moving average");colormap('gray');
-            caxis([0 40] )
-            subtightplot(3,3,5);
+%             subtightplot(3,3,1);
+%             imh1 =  imagesc(uint8(frameArray(:,:,:,iFrame)));axis image;colorbar; title("Input frames");colormap('gray');
+%             title(num2str(iFrame),'color','r','fontSize',14);
+%             subtightplot(3,3,2);
+%             imhx =  imagesc(dGreyScaleArray(:,:,iFrame));axis image;  colorbar; title("Normalised framediff");colormap('gray');
+%             caxis([-70 70] )
+%             subtightplot(3,3,3);
+%             imh3 =  imagesc(waggleMapMaxed(:,:,iFrame));axis image;colorbar;title("1D convolution");colormap('gray');
+%             caxis([0 50] )
+%             subtightplot(3,3,4);
+%             imh4 =  imagesc( meanWaggleMapFrame  );axis image;  colorbar;title("Moving average");colormap('gray');
+%             caxis([0 40] )
+%             subtightplot(3,3,5);
             imh5 =  imagesc(waggleConvResultMaxedVal );axis image;  colorbar;title("2D convolution waggle map");colormap('gray');
-            caxis([0 40] )
-            subtightplot(3,3,6);
-            imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;title("Threshold waggle map");colormap('gray');
-            caxis([0 1] )
-            subtightplot(3,3,8);
-            imh7 =  imagesc(waggleDetectionMap);axis image;  colorbar;title("Detected waggle map");colormap('gray');
-            %             caxis([0 1] )
-            set(gcf,'Position',[100 100 1000 1000]);
+%             caxis([0 40] )
+%             subtightplot(3,3,6);
+%             imh6 =  imagesc(waggleConvThreshed );axis image;  colorbar;title("Threshold waggle map");colormap('gray');
+%             caxis([0 1] )
+%             subtightplot(3,3,8);
+%             imh7 =  imagesc(waggleDetectionMap);axis image;  colorbar;title("Detected waggle map");colormap('gray');
+%             %             caxis([0 1] )
+%             set(gcf,'Position',[100 100 1000 1000]);
             
             F = getframe(gcf) ;
             writeVideo(writerObj, F);
@@ -613,6 +616,88 @@ zlabel("Time [frame]");
 title("Waggle Labels with radius");
 xlim([0 1920]);
 ylim([0 1080]);
+
+%% Ground truth and predicted waggle post-processing
+load('./final_labels/20210803t1727d200m_cropped/20210803t1727d200m_cropped_TD_25x25Template.mat')
+load('./final_labels/20210803t1727d200m_cropped/20210803t1727d200m_ground_truth.mat')
+
+% ground truth setup
+groundtruth = [];
+counter = 0;
+frame_index_Gt = 0;
+frameID = td_gt.frameID(1);
+
+for idx = 1:td_gt.frameID(end)
+    frame_index_Gt = frame_index_Gt + 1;
+    if frameID > idx
+        groundtruth.x(idx)      = 0;
+        groundtruth.y(idx)      = 0;
+        groundtruth.angle(idx)  = 0;
+        groundtruth.c(idx)      = 0;
+        groundtruth.frameID(idx)      = frame_index_Gt;
+    else
+        counter = counter + 1;
+        groundtruth.x(idx)      = td_gt.x(counter);
+        groundtruth.y(idx)      = td_gt.y(counter);
+        groundtruth.angle(idx)  = td_gt.angle(counter);
+        groundtruth.c(idx)      = 1;
+        groundtruth.frameID(idx)      = frame_index_Gt;
+    end
+end
+td_gt = groundtruth;
+
+% detected waggle setup
+d = diff(td.frameID);
+d(d==0) = 1;
+ivec = cumsum([1 d]);
+y = nan(1,ivec(end));
+y(ivec) = td.x;td.x = y;
+td.x(isnan(td.x))=0;
+y(ivec) = td.y;td.y = y;
+td.y(isnan(td.y))=0;
+y(ivec) = td.ts;td.ts = y;
+td.ts(isnan(td.ts))=0;
+y(ivec) = td.angle;td.angle = y;
+td.angle(isnan(td.angle))=0;
+y(ivec) = td.frameID;td.frameID = y;
+td.frameID(isnan(td.frameID))=0;
+
+counter = 0;
+frame_index_pred = 0;
+pred_waggle = [];
+pred_waggleLabel = [];
+frameID = td.frameID(1);
+pred_waggleLabel(find(td.frameID==0))=0;
+pred_waggleLabel(find(td.frameID~=0))=1;
+for idx = 1:td.frameID(end)
+    frame_index_pred = frame_index_pred + 1;
+    if frameID > idx
+        pred_waggle.x                   = 0;
+        pred_waggle.y(idx)              = 0;
+        pred_waggle.angle(idx)          = 0;
+        pred_waggle.c(idx)              = 0;
+        pred_waggle.frameID(idx)        = frame_index_pred;
+    else
+        counter = counter + 1;
+        pred_waggle.x(idx)      = td.x(counter);
+        pred_waggle.y(idx)      = td.y(counter);
+        pred_waggle.angle(idx)  = td.angle(counter);
+        pred_waggle.c(idx)      = pred_waggleLabel(counter);
+        pred_waggle.frameID(idx)      = frame_index_pred;
+    end
+end
+
+pred_waggle.x(td.frameID(end):td_gt.frameID(end)) = 0;
+pred_waggle.y(td.frameID(end):td_gt.frameID(end)) = 0;
+pred_waggle.angle(td.frameID(end):td_gt.frameID(end)) = 0;
+pred_waggle.frameID(td.frameID(end):td_gt.frameID(end)) = td.frameID(end):td_gt.frameID(end);
+pred_waggle.c(td.frameID(end):td_gt.frameID(end)) = 0;
+td = pred_waggle;
+
+% figure(67);
+% scatter3(td.x*4,td.y*4,td.frameID,'.r');hold on
+% scatter3(td_gt.x,td_gt.y,td_gt.frameID,'.b');
+
 %% final evaluation
 load('final_labels/20210803t1727d200m_cropped/20210803t1727d200m_cropped_TD.mat')
 load('final_labels/20210803t1727d200m_cropped/20210803t1727d200m_ground_truth.mat')

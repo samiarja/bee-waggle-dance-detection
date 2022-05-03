@@ -1,0 +1,20 @@
+ts = 13;
+tt = 0:12;
+y = ((tt-ts)./6).^8;
+
+
+figure(64536); clf;
+plot(tt,y)
+cnt = 13;
+rs = 25; cs = 25;
+for r = 1:rs
+    for c = 1:cs
+        d = 1/sqrt((r-cnt)^2+(c-cnt)^2);
+        yy(r,c) = (d/6)^8;
+    end
+end
+
+figure(3534)
+surf(yy); 
+%axis image;
+colorbar
