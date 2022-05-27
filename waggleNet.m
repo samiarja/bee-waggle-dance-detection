@@ -1,19 +1,23 @@
 %% Interpolate ground truth
-PATH = "final_labels/20210803t1727d200m_cropped/"; % no linear interpolation
+% PATH = "final_labels/20210803t1727d200m_cropped/"; % no linear interpolation
 % PATH = "final_labels/20210803t1259d050m_cropped/"; % no linear interpolation
 % PATH = "final_labels/20210803t1508d100m_cropped/";   % with linear interpolation
 % PATH = "final_labels/20210803t1719d200m_cropped/";   % with linear interpolation
 % PATH = "final_labels/20210803t1732d200m_cropped_W1/";   % with linear interpolation
 % PATH = "DenseObjectAnnotation/static/"; % with linear interpolation
 
-INTERPOLATE = 0;
-frames=dir(PATH + "png/*.png");
-labels=dir(PATH + "txt/*.txt");
+INTERPOLATE = 1;
+% frames=dir(PATH + "png/*.png");
+% labels=dir(PATH + "txt/*.txt");
+PATH = "/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/bee3/";
+frames=dir("/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/png/*.png");
+labels=dir("/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/bee3/*.txt");
+
 radius = 15;
 beeTrajectory = nan(1000,2);
 td_gt = [];
 iFrame = 0;
-numberofpoints = 5;
+numberofpoints_for_interplation = 20;
 iWaggleEvent = 0;
 firstFrameLabel = str2double(labels(1).name(4:6))-1;
 % frameID = 214;
@@ -23,18 +27,20 @@ firstFrameLabel = str2double(labels(1).name(4:6))-1;
 % open(writerObj);
 
 if INTERPOLATE
-    beeTrajectory_x = nan(5,3000);
-    beeTrajectory_y = nan(5,3000);
-    beeTrajectory_angle = nan(5,3000);
-    for k=1:numel(labels)-1
-        FrameNames=frames(firstFrameLabel+k+numberofpoints).name;
+    beeTrajectory_x = nan(numberofpoints_for_interplation,3000);
+    beeTrajectory_y = nan(numberofpoints_for_interplation,3000);
+    beeTrajectory_angle = nan(numberofpoints_for_interplation,3000);
+    for k=2:numel(labels)-1
+        FrameNames=frames(firstFrameLabel+k+numberofpoints_for_interplation).name;
         LabelNames_before=labels(k).name;
         LabelNames_after=labels(k+1).name;
         iWaggleEvent = iWaggleEvent + 1;
-        labelID_before = fileread(PATH + "txt/" + LabelNames_before);
+%         labelID_before = fileread(PATH + "txt/" + LabelNames_before);
+        labelID_before = fileread(PATH + LabelNames_before);
         datacell_before = textscan(labelID_before, '%f%f%f%f', 'Delimiter',',', 'CollectOutput', 1);
         
-        labelID_after = fileread(PATH + "txt/" + LabelNames_after);
+%         labelID_after = fileread(PATH + "txt/" + LabelNames_after);
+        labelID_after = fileread(PATH + LabelNames_after);
         datacell_after = textscan(labelID_after, '%f%f%f%f', 'Delimiter',',', 'CollectOutput', 1);
         
         x_coor_before = datacell_before{1}(1,1);
@@ -45,9 +51,9 @@ if INTERPOLATE
         y_coor_after = datacell_after{1}(1,2);
         angle_after  = datacell_after{1}(1,4);
         
-        x_coor = linspace(x_coor_before, x_coor_after, numberofpoints);
-        y_coor = linspace(y_coor_before, y_coor_after, numberofpoints);
-        angle  = linspace(angle_before, angle_after, numberofpoints);
+        x_coor = linspace(x_coor_before, x_coor_after, numberofpoints_for_interplation);
+        y_coor = linspace(y_coor_before, y_coor_after, numberofpoints_for_interplation);
+        angle  = linspace(angle_before, angle_after, numberofpoints_for_interplation);
 
         beeTrajectory_x(:,iWaggleEvent) = x_coor';
         beeTrajectory_y(:,iWaggleEvent) = y_coor';
@@ -66,16 +72,16 @@ td_gt.y(frameIDNAN(1):end,:) = [];
 td_gt.angle(frameIDNAN(1):end,:) = [];
 td_gt.frameID = (firstFrameLabel+1:firstFrameLabel+frameIDNAN(1)-1)';
 
-for k=1:numel(td_gt.x)
-    FrameNames=frames(firstFrameLabel+k).name;
-    hf = figure(56);
-    imshow(PATH + "png/" + FrameNames);axis on; hold on
-    rectangle('Position',[td_gt.x(k)-5 td_gt.y(k)-5 radius radius],'Curvature',[1 1],'FaceColor',[1 0 0],'EdgeColor','k',...
-        'LineWidth',2);axis equal
-    drawnow
-% %     F = getframe(gcf);
-% %     writeVideo(writerObj, F);
-end
+% for k=1:numel(td_gt.x)
+%     FrameNames=frames(firstFrameLabel+k).name;
+%     hf = figure(56);
+%     imshow(PATH + "png/" + FrameNames);axis on; hold on
+%     rectangle('Position',[td_gt.x(k)-5 td_gt.y(k)-5 radius radius],'Curvature',[1 1],'FaceColor',[1 0 0],'EdgeColor','k',...
+%         'LineWidth',2);axis equal
+%     drawnow
+% % %     F = getframe(gcf);
+% % %     writeVideo(writerObj, F);
+% end
 % % close(writerObj);
 % % fprintf('Sucessfully generated the video\n')
 
@@ -84,7 +90,8 @@ else
         FrameNames=frames(firstFrameLabel+k).name;
         LabelNames=labels(k).name;
         iWaggleEvent = iWaggleEvent + 1;
-        labelID = fileread(PATH + "txt/" + LabelNames);
+%         labelID = fileread(PATH + "txt/" + LabelNames);
+        labelID = fileread(PATH + LabelNames);
         datacell = textscan(labelID, '%f%f', 'Delimiter',',', 'CollectOutput', 1);
         x_coor = datacell{1}(1);
         y_coor = datacell{1}(3);
@@ -131,8 +138,8 @@ td_gt = td_gt2;
 
 figure(60);
 timestamp = 1:numel(td_gt.x);
-scatter3(td_gt.x,td_gt.y,timestamp,'.');
-% plot3(td_gt.x,td_gt.y,timestamp,'-','LineWidth',2)
+scatter3(td_gt.x(td_gt.x>0),td_gt.y(td_gt.x>0),timestamp(td_gt.x>0),'.');
+plot3(td_gt.x(td_gt.x>0),td_gt.y(td_gt.x>0),timestamp(td_gt.x>0),'-');
 xlabel("X [px]");
 ylabel("Y [px]");
 zlabel("#Frame");
@@ -141,12 +148,13 @@ grid on;
 set(gca,'fontsize', 16);
 
 %% Extract tracks ID from GNNT 
-load('final_labels/20210803t1732d200m_cropped_W2/WaggleNet/20210803t1732d200m_cropped_W2_ground_truth.mat')
+load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_ground_truth_bee4.mat')
 
-total_frame = numel(dir("/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W2/png/*.png"));
+total_frame = numel(dir("/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/png/*.png"));
 track = [];
 trajectory_path = [];
 
+% PATH = "/media/sam/Samsung_T5/PhD/Code/bee_tracking/data/trajectories/";
 PATH = "/media/sam/Samsung_T5/PhD/Code/bee_tracking/data/trajectories/";
 trajectories = dir(PATH + "*.txt");
 
@@ -202,28 +210,27 @@ for idx = 1:size(trajectories,1)-1
     end
     
     track{idx} = trajectory_path;
-   
 end
 track = track';
 %% Extract correctly detected waggles from the track id
 %%%% load data path
-dataPath = "final_labels/20210803t1732d200m_cropped_W2";
+dataPath = "final_labels/20210803t1732d200m_cropped_W4";
 % dataPath = "final_labels/20210803t1727d200m_cropped";
 
 %%%% load segmentation-tracker output "tracks"
 % load(dataPath + '/20210803t1259d050m_Tracker_outputV3.mat')
 % load(dataPath + '/20210803t1719d200m_cropped_Tracker_Output_aligned.mat')
-load(dataPath + '/WaggleNet/20210803t1732d200m_cropped_W2_tracks.mat')  % change this
+load(dataPath + '/WaggleNet/20210803t1732d200m_cropped_W4_tracks_bee4.mat')  % change this
 
 %%%% load ground truth
 % load('final_labels/20210803t1259d050m_cropped/20210803t1259d050m_cropped_ground_truth.mat')
 % load(dataPath + '/20210803t1719d200m_cropped_ground_truth_fixed.mat')
-load(dataPath + '/WaggleNet/20210803t1732d200m_cropped_W2_ground_truth.mat')
+load(dataPath + '/WaggleNet/20210803t1732d200m_cropped_W4_ground_truth_bee4.mat')
 
 %%%% load peak detection output
 % load(dataPath + '/20210803t1259d050m_peak_output.mat')
 % load(dataPath + '/20210803t1719d200m_peak_output_corrected_fixed.mat')
-load(dataPath + '/WaggleNet/20210803t1732d200m_cropped_W2_peak_output.mat')
+load(dataPath + '/WaggleNet/20210803t1732d200m_cropped_W4_peak_output_bee4.mat')
 
 % peak_output.x(end:numel(td_gt.x)) = 0;
 % peak_output.y(end:numel(td_gt.y)) = 0;
@@ -448,258 +455,451 @@ scatter3(X_smooth, Y_smooth, 1:numel(Y_smooth),'.r');hold on;
 plot3(X_smooth, Y_smooth, 1:numel(Y_smooth),'.r');
 %% interpolate angle data between ground truth and detected angles and evaluate event_gt and event_det
 DATASETNAME = ["20210803t1259d050m_cropped", ...
-               "20210803t1719d200m_cropped", ...
-               "20210803t1727d200m_cropped", ...
-               "20210803t1732d200m_cropped_W1", ...
-               "20210803t1248d050m_cropped_W2", ...
-               "20210803t1724d200m_cropped", ...
-               "20210803t1512d100m_cropped_W2", ...
-               "20210803t1732d200m_cropped_W2", ...
-               "20210803t1732d200m_cropped_W3", ...
-               "20210803t1732d200m_cropped_W4"];
+    "20210803t1719d200m_cropped", ...
+    "20210803t1727d200m_cropped", ...
+    "20210803t1732d200m_cropped_W1", ...
+    "20210803t1248d050m_cropped_W2", ...
+    "20210803t1724d200m_cropped", ...
+    "20210803t1512d100m_cropped_W2", ...
+    "20210803t1732d200m_cropped_W2", ...
+    "20210803t1732d200m_cropped_W3", ...
+    "20210803t1732d200m_cropped_W4"];
 
-INTERPOLATION_METHOD = ["linear", "cubic", "spline", "nearest", "next", "previous", "makima"];
+correct_position_interpolation_tracker_Arr  = [];
+wrong_position_interpolation_tracker_Arr    = [];
+correct_angle_interpolation_tracker_Arr     = [];
+wrong_angle_interpolation_tracker_Arr       = [];
+average_IoU_interpolation_tracker_Arr       = [];
+
+correct_position_interpolation_peak_Arr     = [];
+wrong_position_interpolation_peak_Arr       = [];
+average_IoU_interpolation_peak_output_Arr   = [];
+           
+% METHOD = ["linear", "cubic", "spline", "nearest", "next", "previous", "makima"];
 METHOD = "makima";
 
-for dataset_index = 8%1:numel(DATASETNAME)-3
-    dataNAME = DATASETNAME(dataset_index)%"20210803t1259d050m_cropped";
-    
-    load("final_labels/" + dataNAME + "/WaggleNet/" + dataNAME + "_event_det.mat")
-    load("final_labels/" + dataNAME + "/WaggleNet/" + dataNAME + "_event_gt.mat")
-    load("final_labels/" + dataNAME + "/WaggleNet/" + dataNAME + "_peak_output.mat")
-    
-    event_det = struct('x',single(event_det(:,1)),'y',single(event_det(:,2)),'angle',single(event_det(:,3)),'ts',single(event_det(:,4)));
-    event_gt  = struct('x',single(event_gt(:,1)),'y',single(event_gt(:,2)),'angle',single(event_gt(:,3)),'ts',single(event_gt(:,4)));
-    
-    findOutlier = find(event_gt.x~=-1);
-    RANGE = findOutlier(1):numel(peak_output.x);%findOutlier(end);
-    
-    event_det.interx = event_det.x;
-    event_det.interx(event_det.interx==-1) = NaN;
-    nanx = isnan(event_det.interx);
-    tx    = 1:numel(event_det.interx);
-    event_det.interx(nanx) = interp1(tx(~nanx), event_det.interx(~nanx), tx(nanx),METHOD);
-    event_det.interx = round(event_det.interx);
-    
-    event_det.intery = event_det.y;
-    event_det.intery(event_det.intery==-1) = NaN;
-    nany = isnan(event_det.intery);
-    ty    = 1:numel(event_det.intery);
-    event_det.intery(nany) = interp1(ty(~nany), event_det.intery(~nany), ty(nany),METHOD);
-    event_det.intery = round(event_det.intery);
-    
-    event_det.interangle = event_det.angle;
-    event_det.interangle(event_det.interangle==-1) = NaN;
-    nanangle = isnan(event_det.interangle);
-    tangle    = 1:numel(event_det.interangle);
-    event_det.interangle(nanangle) = interp1(tangle(~nanangle), event_det.interangle(~nanangle), tx(nanangle),METHOD);
-    event_det.interangle = round(event_det.interangle);
-    
-    event_det.interts = event_det.ts;
-    event_det.interts(event_det.interts==-1) = NaN;
-    nants = isnan(event_det.interts);
-    tts    = 1:numel(event_det.interts);
-    event_det.interts(nants) = interp1(tts(~nants), event_det.interts(~nants), tx(nants),METHOD);
-    event_det.interts = round(event_det.interts);
-    
-    %%%%%%%%%%%%%%%%%%% INTERPOLATE PEAK OUTPUT #########################
-    peak_output.x(peak_output.x==0) = NaN;
-    peak_output.y(peak_output.y==0) = NaN;
-    peak_output.ts(peak_output.ts==0) = NaN;
-    peak_output.interx = peak_output.x;
-    peak_output.interx(peak_output.interx==-1) = NaN;
-    nanx = isnan(peak_output.interx);
-    tx    = 1:numel(peak_output.interx);
-    peak_output.interx(nanx) = interp1(tx(~nanx), peak_output.interx(~nanx), tx(nanx),METHOD);
-    peak_output.interx = round(peak_output.interx);
-    
-    peak_output.intery = peak_output.y;
-    peak_output.intery(peak_output.intery==-1) = NaN;
-    nany = isnan(peak_output.intery);
-    ty    = 1:numel(peak_output.intery);
-    peak_output.intery(nany) = interp1(ty(~nany), peak_output.intery(~nany), ty(nany),METHOD);
-    peak_output.intery = round(peak_output.intery);
-    
-    peak_output.interts = peak_output.ts;
-    peak_output.interts(peak_output.interts==-1) = NaN;
-    nants = isnan(peak_output.interts);
-    tts    = 1:numel(peak_output.interts);
-    peak_output.interts(nants) = interp1(tts(~nants), peak_output.interts(~nants), tx(nants),METHOD);
-    peak_output.interts = round(peak_output.interts);
-    
-    % no_interpolated = numel(peak_output.x(~isnan(peak_output.x ) ))
-    % interpolated = numel(peak_output.x(~isnan(peak_output.interx ) ))
-    
-    figure(67678);
-    scatter3(event_det.interx,event_det.intery,event_det.interts,'.r');hold on
-    scatter3(event_gt.x,event_gt.y,event_gt.ts,'.b');
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EVALUATE TRACKER
-    beePixelSize = 50;
-    correct_position_no_interpolation_tracker   = 0;
-    wrong_position_no_interpolation_tracker     = 0;
-    correct_position_interpolation_tracker      = 0;
-    wrong_position_interpolation_tracker        = 0;
-    testingPresentations = numel(event_gt.angle);
-    
-    for idx = RANGE
-        if ((event_det.x(idx) - event_gt.x(idx))^2 + (event_det.y(idx) - event_gt.y(idx))^2)<beePixelSize^2
-            correct_position_no_interpolation_tracker = correct_position_no_interpolation_tracker + 1;
-        else
-            wrong_position_no_interpolation_tracker = wrong_position_no_interpolation_tracker + 1;
+
+for BEE = 1:4
+    for dataset_index = 10%1:numel(DATASETNAME)
+        dataNAME = DATASETNAME(dataset_index);%"20210803t1259d050m_cropped";
+        
+        load("final_labels/" + dataNAME + "/WaggleNet/" + dataNAME + "_event_det_bee" + num2str(BEE) + ".mat")
+        load("final_labels/" + dataNAME + "/WaggleNet/" + dataNAME + "_event_gt_bee" + num2str(BEE) + ".mat")
+        load("final_labels/" + dataNAME + "/WaggleNet/" + dataNAME + "_peak_output_bee" + num2str(BEE) + ".mat")
+        
+        event_det = struct('x',single(event_det(:,1)),'y',single(event_det(:,2)),'angle',single(event_det(:,3)),'ts',single(event_det(:,4)));
+        event_gt  = struct('x',single(event_gt(:,1)),'y',single(event_gt(:,2)),'angle',single(event_gt(:,3)),'ts',single(event_gt(:,4)));
+        
+        findOutlier = find(event_gt.x~=-1);
+        RANGE = findOutlier(1):numel(peak_output.x);%findOutlier(end);
+        
+        event_det.interx = event_det.x;
+        event_det.interx(event_det.interx==-1) = NaN;
+        nanx = isnan(event_det.interx);
+        tx    = 1:numel(event_det.interx);
+        event_det.interx(nanx) = interp1(tx(~nanx), event_det.interx(~nanx), tx(nanx),METHOD);
+        event_det.interx = round(event_det.interx);
+        
+        event_det.intery = event_det.y;
+        event_det.intery(event_det.intery==-1) = NaN;
+        nany = isnan(event_det.intery);
+        ty    = 1:numel(event_det.intery);
+        event_det.intery(nany) = interp1(ty(~nany), event_det.intery(~nany), ty(nany),METHOD);
+        event_det.intery = round(event_det.intery);
+        
+        event_det.interangle = event_det.angle;
+        event_det.interangle(event_det.interangle==-1) = NaN;
+        nanangle = isnan(event_det.interangle);
+        tangle    = 1:numel(event_det.interangle);
+        event_det.interangle(nanangle) = interp1(tangle(~nanangle), event_det.interangle(~nanangle), tx(nanangle),METHOD);
+        event_det.interangle = round(event_det.interangle);
+        
+        event_det.interts = event_det.ts;
+        event_det.interts(event_det.interts==-1) = NaN;
+        nants = isnan(event_det.interts);
+        tts    = 1:numel(event_det.interts);
+        event_det.interts(nants) = interp1(tts(~nants), event_det.interts(~nants), tx(nants),METHOD);
+        event_det.interts = round(event_det.interts);
+        
+        %%%%%%%%%%%%%%%%%%% INTERPOLATE PEAK OUTPUT #########################
+        peak_output.x(peak_output.x==0) = NaN;
+        peak_output.y(peak_output.y==0) = NaN;
+        peak_output.ts(peak_output.ts==0) = NaN;
+        peak_output.interx = peak_output.x;
+        peak_output.interx(peak_output.interx==-1) = NaN;
+        nanx = isnan(peak_output.interx);
+        tx    = 1:numel(peak_output.interx);
+        peak_output.interx(nanx) = interp1(tx(~nanx), peak_output.interx(~nanx), tx(nanx),METHOD);
+        peak_output.interx = round(peak_output.interx);
+        
+        peak_output.intery = peak_output.y;
+        peak_output.intery(peak_output.intery==-1) = NaN;
+        nany = isnan(peak_output.intery);
+        ty    = 1:numel(peak_output.intery);
+        peak_output.intery(nany) = interp1(ty(~nany), peak_output.intery(~nany), ty(nany),METHOD);
+        peak_output.intery = round(peak_output.intery);
+        
+        peak_output.interts = peak_output.ts;
+        peak_output.interts(peak_output.interts==-1) = NaN;
+        nants = isnan(peak_output.interts);
+        tts    = 1:numel(peak_output.interts);
+        peak_output.interts(nants) = interp1(tts(~nants), peak_output.interts(~nants), tx(nants),METHOD);
+        peak_output.interts = round(peak_output.interts);
+        
+        % no_interpolated = numel(peak_output.x(~isnan(peak_output.x ) ))
+        % interpolated = numel(peak_output.x(~isnan(peak_output.interx ) ))
+        
+        %     figure(67678);
+        %     scatter3(event_det.interx,event_det.intery,event_det.interts,'.r');hold on
+        %     scatter3(event_gt.x,event_gt.y,event_gt.ts,'.b');
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EVALUATE TRACKER
+        beePixelSize = 50;
+        correct_position_no_interpolation_tracker   = 0;
+        wrong_position_no_interpolation_tracker     = 0;
+        correct_position_interpolation_tracker      = 0;
+        wrong_position_interpolation_tracker        = 0;
+        testingPresentations = numel(event_gt.angle);
+        
+        for idx = RANGE
+            if ((event_det.x(idx) - event_gt.x(idx))^2 + (event_det.y(idx) - event_gt.y(idx))^2)<beePixelSize^2
+                correct_position_no_interpolation_tracker = correct_position_no_interpolation_tracker + 1;
+            else
+                wrong_position_no_interpolation_tracker = wrong_position_no_interpolation_tracker + 1;
+            end
         end
-    end
-    position_accuracy_percentage_no_interpolation_tracker = (1 - wrong_position_no_interpolation_tracker/testingPresentations)*100;
-    
-    
-    for idx = RANGE
-        if ((event_det.interx(idx) - event_gt.x(idx))^2 + (event_det.intery(idx) - event_gt.y(idx))^2)<beePixelSize^2
-            correct_position_interpolation_tracker = correct_position_interpolation_tracker + 1;
-        else
-            wrong_position_interpolation_tracker = wrong_position_interpolation_tracker + 1;
+        position_accuracy_percentage_no_interpolation_tracker = (1 - wrong_position_no_interpolation_tracker/testingPresentations)*100;
+        
+        
+        for idx = RANGE
+            if ((event_det.interx(idx) - event_gt.x(idx))^2 + (event_det.intery(idx) - event_gt.y(idx))^2)<beePixelSize^2
+                correct_position_interpolation_tracker = correct_position_interpolation_tracker + 1;
+            else
+                wrong_position_interpolation_tracker = wrong_position_interpolation_tracker + 1;
+            end
         end
-    end
-    position_accuracy_percentage_interpolation_tracker = (1 - wrong_position_interpolation_tracker/testingPresentations)*100;
-    
-    % evaluate angle with tracker
-    correct_angle_no_interpolation_tracker   = 0;
-    wrong_angle_no_interpolation_tracker     = 0;
-    correct_angle_interpolation_tracker   = 0;
-    wrong_angle_interpolation_tracker     = 0;
-    angleRange      = 90;
-    testingPresentations = numel(event_gt.angle);
-    for idx = RANGE
-        if event_det.angle(idx) > event_gt.angle(idx)-angleRange && event_det.angle(idx) < event_gt.angle(idx)+angleRange
-            correct_angle_no_interpolation_tracker = correct_angle_no_interpolation_tracker + 1;
-        else
-            wrong_angle_no_interpolation_tracker = wrong_angle_no_interpolation_tracker + 1;
+        position_accuracy_percentage_interpolation_tracker = (1 - wrong_position_interpolation_tracker/testingPresentations)*100;
+        
+        % evaluate angle with tracker
+        correct_angle_no_interpolation_tracker   = 0;
+        wrong_angle_no_interpolation_tracker     = 0;
+        correct_angle_interpolation_tracker   = 0;
+        wrong_angle_interpolation_tracker     = 0;
+        angleRange      = 90;
+        testingPresentations = numel(event_gt.angle);
+        for idx = RANGE
+            if event_det.angle(idx) > event_gt.angle(idx)-angleRange && event_det.angle(idx) < event_gt.angle(idx)+angleRange
+                correct_angle_no_interpolation_tracker = correct_angle_no_interpolation_tracker + 1;
+            else
+                wrong_angle_no_interpolation_tracker = wrong_angle_no_interpolation_tracker + 1;
+            end
         end
-    end
-    angle_accuracy_percentage_no_interpolation_tracker = (1 - wrong_angle_no_interpolation_tracker/testingPresentations)*100;
-    
-    for idx = RANGE
-        if event_det.interangle(idx) > event_gt.angle(idx)-angleRange && event_det.interangle(idx) < event_gt.angle(idx)+angleRange
-            correct_angle_interpolation_tracker = correct_angle_interpolation_tracker + 1;
-        else
-            wrong_angle_interpolation_tracker = wrong_angle_interpolation_tracker + 1;
+        angle_accuracy_percentage_no_interpolation_tracker = (1 - wrong_angle_no_interpolation_tracker/testingPresentations)*100;
+        
+        for idx = RANGE
+            if event_det.interangle(idx) > event_gt.angle(idx)-angleRange && event_det.interangle(idx) < event_gt.angle(idx)+angleRange
+                correct_angle_interpolation_tracker = correct_angle_interpolation_tracker + 1;
+            else
+                wrong_angle_interpolation_tracker = wrong_angle_interpolation_tracker + 1;
+            end
         end
-    end
-    angle_accuracy_percentage_interpolation_tracker = (1 - wrong_angle_interpolation_tracker/testingPresentations)*100;
-    
-    
-    count_ground_truth = numel(find(event_gt.x~=-1));
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EVALUATE TRACKER peak_output
-    beePixelSize = 50;
-    correct_position_interpolation_peak   = 0;
-    wrong_position_interpolation_peak     = 0;
-    correct_position_no_interpolation_peak   = 0;
-    wrong_position_no_interpolation_peak     = 0;
-    testingPresentations = numel(peak_output.x);
-    for idx = RANGE
-        if ((peak_output.interx(idx) - event_gt.x(idx))^2 + (peak_output.intery(idx) - event_gt.y(idx))^2)<beePixelSize^2
-            correct_position_interpolation_peak = correct_position_interpolation_peak + 1;
-        else
-            wrong_position_interpolation_peak = wrong_position_interpolation_peak + 1;
+        angle_accuracy_percentage_interpolation_tracker = (1 - wrong_angle_interpolation_tracker/testingPresentations)*100;
+        
+        
+        count_ground_truth = numel(find(event_gt.x~=-1));
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% EVALUATE TRACKER peak_output
+        beePixelSize = 50;
+        correct_position_interpolation_peak   = 0;
+        wrong_position_interpolation_peak     = 0;
+        correct_position_no_interpolation_peak   = 0;
+        wrong_position_no_interpolation_peak     = 0;
+        testingPresentations = numel(peak_output.x);
+        for idx = RANGE
+            if ((peak_output.interx(idx) - event_gt.x(idx))^2 + (peak_output.intery(idx) - event_gt.y(idx))^2)<beePixelSize^2
+                correct_position_interpolation_peak = correct_position_interpolation_peak + 1;
+            else
+                wrong_position_interpolation_peak = wrong_position_interpolation_peak + 1;
+            end
         end
-    end
-    position_accuracy_percentage_peak = (1 - wrong_position_interpolation_peak/testingPresentations)*100;
-    
-    for idx = RANGE
-        if ((peak_output.x(idx) - event_gt.x(idx))^2 + (peak_output.y(idx) - event_gt.y(idx))^2)<beePixelSize^2
-            correct_position_no_interpolation_peak = correct_position_no_interpolation_peak + 1;
-        else
-            wrong_position_no_interpolation_peak = wrong_position_no_interpolation_peak + 1;
+        position_accuracy_percentage_peak = (1 - wrong_position_interpolation_peak/testingPresentations)*100;
+        
+        for idx = RANGE
+            if ((peak_output.x(idx) - event_gt.x(idx))^2 + (peak_output.y(idx) - event_gt.y(idx))^2)<beePixelSize^2
+                correct_position_no_interpolation_peak = correct_position_no_interpolation_peak + 1;
+            else
+                wrong_position_no_interpolation_peak = wrong_position_no_interpolation_peak + 1;
+            end
         end
-    end
-    position_accuracy_percentage_no_interpolation_peak = (1 - wrong_position_no_interpolation_peak/testingPresentations)*100;
-    
-    %%%%%%%%%%%%%%%%%%%%%%%% IoU for tracker without interpolation
-    positionOffset = 50;
-    radius = 75;
-    overlapRatio = nan(1,numel(event_gt.x));
-    for k=1:numel(event_gt.x)
-        if ~isnan(event_det.x(k)-positionOffset)
-            bbox_correct_detected_track = [event_det.x(k)-positionOffset, event_det.y(k)-positionOffset, radius, radius];
-            bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
-            overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+        position_accuracy_percentage_no_interpolation_peak = (1 - wrong_position_no_interpolation_peak/testingPresentations)*100;
+        
+        %%%%%%%%%%%%%%%%%%%%%%%% IoU for tracker without interpolation
+        positionOffset = 50;
+        radius = 75;
+        overlapRatio = nan(1,numel(event_gt.x));
+        for k=1:numel(event_gt.x)
+            if ~isnan(event_det.x(k)-positionOffset)
+                bbox_correct_detected_track = [event_det.x(k)-positionOffset, event_det.y(k)-positionOffset, radius, radius];
+                bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
+                overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+            end
         end
-    end
-    findNonNaN = ~isnan(overlapRatio);
-    average_IoU_no_interpolation_tracker = mean(overlapRatio(findNonNaN));
-    
-    %%%%%%%%%%%%%%%%%%%%%%%% IoU for tracker with interpolation
-    positionOffset = 50;
-    radius = 75;
-    overlapRatio = nan(1,numel(event_gt.x));
-    for k=RANGE
-        if ~isnan(event_det.interx(k)-positionOffset)
-            bbox_correct_detected_track = [event_det.interx(k)-positionOffset, event_det.intery(k)-positionOffset, radius, radius];
-            bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
-            overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+        findNonNaN = ~isnan(overlapRatio);
+        average_IoU_no_interpolation_tracker = mean(overlapRatio(findNonNaN));
+        
+        %%%%%%%%%%%%%%%%%%%%%%%% IoU for tracker with interpolation
+        positionOffset = 50;
+        radius = 75;
+        overlapRatio = nan(1,numel(event_gt.x));
+        for k=RANGE
+            if ~isnan(event_det.interx(k)-positionOffset)
+                bbox_correct_detected_track = [event_det.interx(k)-positionOffset, event_det.intery(k)-positionOffset, radius, radius];
+                bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
+                overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+            end
         end
-    end
-    findNonNaN = ~isnan(overlapRatio);
-    average_IoU_interpolation_tracker = mean(overlapRatio(findNonNaN));
-    
-    %%%%%%%%%%%%%%%%%%%%%%%% IoU for peak detector without interpolation
-    positionOffset = 50;
-    radius = 75;
-    overlapRatio = nan(1,numel(peak_output.x));
-    for k=RANGE
-        if ~isnan(peak_output.x(k)-positionOffset)
-            bbox_correct_detected_track = [peak_output.x(k)-positionOffset, peak_output.y(k)-positionOffset, radius, radius];
-            bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
-            overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+        findNonNaN = ~isnan(overlapRatio);
+        average_IoU_interpolation_tracker = mean(overlapRatio(findNonNaN));
+        
+        %%%%%%%%%%%%%%%%%%%%%%%% IoU for peak detector without interpolation
+        positionOffset = 50;
+        radius = 75;
+        overlapRatio = nan(1,numel(peak_output.x));
+        for k=RANGE
+            if ~isnan(peak_output.x(k)-positionOffset)
+                bbox_correct_detected_track = [peak_output.x(k)-positionOffset, peak_output.y(k)-positionOffset, radius, radius];
+                bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
+                overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+            end
         end
-    end
-    findNonNaN = ~isnan(overlapRatio);
-    average_IoU_no_interpolation_peak_output = mean(overlapRatio(findNonNaN));
-    
-    %%%%%%%%%%%%%%%%%%%%%%%% IoU for peak detector with interpolation
-    positionOffset = 50;
-    radius = 75;
-    overlapRatio = nan(1,numel(event_gt.x));
-    for k=RANGE
-        if ~isnan(peak_output.interx(k)-positionOffset)
-            bbox_correct_detected_track = [peak_output.interx(k)-positionOffset, peak_output.intery(k)-positionOffset, radius, radius];
-            bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
-            overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+        findNonNaN = ~isnan(overlapRatio);
+        average_IoU_no_interpolation_peak_output = mean(overlapRatio(findNonNaN));
+        
+        %%%%%%%%%%%%%%%%%%%%%%%% IoU for peak detector with interpolation
+        positionOffset = 50;
+        radius = 75;
+        overlapRatio = nan(1,numel(event_gt.x));
+        for k=RANGE
+            if ~isnan(peak_output.interx(k)-positionOffset)
+                bbox_correct_detected_track = [peak_output.interx(k)-positionOffset, peak_output.intery(k)-positionOffset, radius, radius];
+                bbox_groundtruth = [event_gt.x(k)-positionOffset, event_gt.y(k)-positionOffset, radius, radius];
+                overlapRatio(k) = bboxOverlapRatio(bbox_correct_detected_track,bbox_groundtruth);
+            end
         end
+        findNonNaN = ~isnan(overlapRatio);
+        average_IoU_interpolation_peak_output = mean(overlapRatio(findNonNaN));
+        
+        correct_position_interpolation_tracker_Arr = [correct_position_interpolation_tracker_Arr;correct_position_interpolation_tracker];
+        wrong_position_interpolation_tracker_Arr = [wrong_position_interpolation_tracker_Arr;wrong_position_interpolation_tracker];
+        correct_angle_interpolation_tracker_Arr = [correct_angle_interpolation_tracker_Arr;correct_angle_interpolation_tracker];
+        wrong_angle_interpolation_tracker_Arr = [wrong_angle_interpolation_tracker_Arr;wrong_angle_interpolation_tracker];
+        average_IoU_interpolation_tracker_Arr = [average_IoU_interpolation_tracker_Arr;average_IoU_interpolation_tracker];
+        
+        correct_position_interpolation_peak_Arr = [correct_position_interpolation_peak_Arr;correct_position_interpolation_peak];
+        wrong_position_interpolation_peak_Arr = [wrong_position_interpolation_peak_Arr;wrong_position_interpolation_peak];
+        average_IoU_interpolation_peak_output_Arr = [average_IoU_interpolation_peak_output_Arr;average_IoU_interpolation_peak_output];
+        
     end
-    findNonNaN = ~isnan(overlapRatio);
-    average_IoU_interpolation_peak_output = mean(overlapRatio(findNonNaN));
-    
-    
-    % waggleNet_no_interpolation  = [correct_position_no_interpolation_tracker wrong_position_no_interpolation_tracker correct_angle_no_interpolation_tracker wrong_angle_no_interpolation_tracker average_IoU_no_interpolation_tracker]
-    waggleNet_interpolation     = [correct_position_interpolation_tracker wrong_position_interpolation_tracker correct_angle_interpolation_tracker wrong_angle_interpolation_tracker average_IoU_interpolation_tracker]
-    % peak_no_interpolation       = [correct_position_no_interpolation_peak wrong_position_no_interpolation_peak average_IoU_no_interpolation_peak_output]
-    peak_interpolation          = [correct_position_interpolation_peak wrong_position_interpolation_peak average_IoU_interpolation_peak_output]
 end
+waggleNet_interpolation     = [sum(correct_position_interpolation_tracker_Arr) sum(wrong_position_interpolation_tracker_Arr) sum(correct_angle_interpolation_tracker_Arr) sum(wrong_angle_interpolation_tracker_Arr) sum(average_IoU_interpolation_tracker_Arr)]
+peak_interpolation          = [sum(correct_position_interpolation_peak_Arr) sum(wrong_position_interpolation_peak_Arr) sum(average_IoU_interpolation_peak_output_Arr)]
+
 %%
-load('final_labels/20210803t1259d050m_cropped/WaggleNet/20210803t1259d050m_cropped_ground_truth_fixed.mat')
-load('final_labels/20210803t1259d050m_cropped/WaggleNet/20210803t1259d050m_correctly_detected_waggle.mat')
+bee1 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_correctly_detected_waggle_bee1.mat');
+bee2 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_correctly_detected_waggle_bee2.mat');
+bee3 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_correctly_detected_waggle_bee3.mat');
+bee4 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_correctly_detected_waggle_bee4.mat');
 
-figure(67089);
-scatter3(correct_detected_track_coordinate.interx,1:numel(correct_detected_track_coordinate.interts),correct_detected_track_coordinate.intery,'.r');hold on;
-scatter3(td_gt.x,1:numel(td_gt.x),td_gt.y,'.b');
-xlabel("X (px)")
-ylabel("# Frames")
-zlabel("Y (px)")
+figure(5657678);
+subplot(2,1,1)
+scatter3(bee1.correct_detected_track_coordinate.x,bee1.correct_detected_track_coordinate.ts,bee1.correct_detected_track_coordinate.y,'.r');hold on
+scatter3(bee2.correct_detected_track_coordinate.x,bee2.correct_detected_track_coordinate.ts,bee2.correct_detected_track_coordinate.y,'.b');
+scatter3(bee3.correct_detected_track_coordinate.x,bee3.correct_detected_track_coordinate.ts,bee3.correct_detected_track_coordinate.y,'.g');
+scatter3(bee4.correct_detected_track_coordinate.x,bee4.correct_detected_track_coordinate.ts,bee4.correct_detected_track_coordinate.y,'.m');
+xlabel("X (px)");
+ylabel("# Frames");
+zlabel("Y (px)");
+title("Detected waggles without interpolation");
 
-figure(688799);
-plot(td_gt.x)
+subplot(2,1,2)
+scatter3(bee1.correct_detected_track_coordinate.interx,bee1.correct_detected_track_coordinate.interts,bee1.correct_detected_track_coordinate.intery,'.r');hold on
+plot3(bee1.correct_detected_track_coordinate.interx,bee1.correct_detected_track_coordinate.interts,bee1.correct_detected_track_coordinate.intery,'-r');
+scatter3(bee2.correct_detected_track_coordinate.interx,bee2.correct_detected_track_coordinate.interts,bee2.correct_detected_track_coordinate.intery,'.b');
+plot3(bee2.correct_detected_track_coordinate.interx,bee2.correct_detected_track_coordinate.interts,bee2.correct_detected_track_coordinate.intery,'-b');
+scatter3(bee3.correct_detected_track_coordinate.interx,bee3.correct_detected_track_coordinate.interts,bee3.correct_detected_track_coordinate.intery,'.g');
+plot3(bee3.correct_detected_track_coordinate.interx,bee3.correct_detected_track_coordinate.interts,bee3.correct_detected_track_coordinate.intery,'-g');
+scatter3(bee4.correct_detected_track_coordinate.interx,bee4.correct_detected_track_coordinate.interts,bee4.correct_detected_track_coordinate.intery,'.m');
+plot3(bee4.correct_detected_track_coordinate.interx,bee4.correct_detected_track_coordinate.interts,bee4.correct_detected_track_coordinate.intery,'-m');
+xlabel("X (px)");
+ylabel("# Frames");
+zlabel("Y (px)");
+title("Detected waggles with linear interpolation");
 
-xA = td_gt.x(33);
-yA = td_gt.y(33);
-xB = td_gt.x(34);
-yB = td_gt.y(34);
-
-y=yB-yA;
-x=xB-xA;
-P = atan2(y,x)
-rad2deg(P)
+%%
+detector = readtable('/media/sam/Samsung_T5/PhD/Code/bee_tracking/data/checkpoints/unet2/accuracy.csv');
+tracker = readtable('/media/sam/Samsung_T5/PhD/Code/bee_tracking/data/checkpoints/inception/accuracy.csv');
 
 
-slope = y/x;
-atand(slope)
+figure(689879);
+Y = 1:numel(tracker.EuclideandistancePos);
+subplot(4,4,[1 7])
+plot_shaded(Y,movmean(tracker.EuclideandistancePos,2));hold on
+plot_shaded(Y,movmean(tracker.EuclideandistanceNeg,2));
+title("Mean values of the Euclidean distance")
+xlabel("Iteration");
+ylabel("Euclidean Distance");
+subplot(4,4,[9 15])
+plot_shaded(Y,movmean(tracker.Loss,4));
+title("Trajectory Loss")
+xlabel("Iteration");
+ylabel("Loss");
+subplot(4,4,4)
+plot_shaded(1:numel(movmean(detector.Var2(detector.Var1>0),2)),movmean(detector.Var2(detector.Var1>0),2));hold on
+plot_shaded(1:numel(movmean(detector.Var2(detector.Var1<1),2)),movmean(detector.Var2(detector.Var1<1),2));
+title("Training Loss")
+subplot(4,4,8)
+plot_shaded(1:numel(movmean(detector.Var5(detector.Var1>0),2)),movmean(detector.Var5(detector.Var1>0),2));hold on
+plot_shaded(1:numel(movmean(detector.Var5(detector.Var1<1),2)),movmean(detector.Var5(detector.Var1<1),2));
+title("Class Error")
+subplot(4,4,[12 16])
+plot_shaded(1:numel(movmean(detector.Var6(detector.Var1>0),2)),movmean(detector.Var6(detector.Var1>0),2));hold on
+plot_shaded(1:numel(movmean(detector.Var6(detector.Var1<1),2)),movmean(detector.Var6(detector.Var1<1),2));
+title("Angle Error")
+
+%%
+load('td_out/peak_detector_evaluation.mat')
+figure(66);
+plot_shaded(1:numel(peak_detector_evaluation.F1),peak_detector_evaluation.F1);hold on;
+plot_shaded(1:numel(peak_detector_evaluation.informedness),peak_detector_evaluation.informedness);
+plot_shaded(1:numel(peak_detector_evaluation.sensitivity),peak_detector_evaluation.sensitivity);
+plot_shaded(1:numel(peak_detector_evaluation.specificity),peak_detector_evaluation.specificity);
+title("Peak Detection by Frame Subtraction");
+xlabel("Threshold");
+set(gca,'fontsize', 18);
+
+%% circular statistics
+addpath("/media/sam/Samsung_T5/PhD/Code/bee-waggle-dance-detection/circstat")
+load('final_labels/20210803t1732d200m_cropped_W3/WaggleNet/20210803t1732d200m_cropped_W3_event_gt.mat')
+load('final_labels/20210803t1732d200m_cropped_W3/WaggleNet/20210803t1732d200m_cropped_W3_event_det.mat')
+sDist = double(event_gt(:,3));
+s2Dist = double(event_det(:,3));
+
+fH = figure;
+CircHist(s2Dist, 'dataType', 'histogram');
+% obj1.colorBar = 'k';  % change color of bars
+% obj1.avgAngH.LineStyle = '--'; % make average-angle line dashed
+% obj1.avgAngH.LineWidth = 1; % make average-angle line thinner
+% obj1.colorAvgAng = [.5 .5 .5]; % change average-angle line color
+% % remove offset between bars and plot-center
+% rl = rlim; % get current limits
+% obj1.setRLim([0, rl(2)]); % set lower limit to 0
+% % draw circle at r == 0.5 (where r == 1 would be the outer plot edge)
+% rl = rlim;
+% obj1.drawCirc((rl(2) - rl(1)) /2, '--b', 'LineWidth', 2)
+% obj1.scaleBarSide = 'left'; % draw rho-axis on the right side of the plot
+% obj1.polarAxs.ThetaZeroLocation = 'top'; % rotate the plot to have 0° on the right side
+% obj1.setThetaLabel('Direction', 'bottomleft'); % add label
+% % draw resultant vector r as arrow
+% delete(obj1.rH)
+% obj1.drawArrow(obj1.avgAng, obj1.r * range(rl)*2, 'HeadWidth', 10, 'LineWidth', 2, 'Color', 'r')
+% % Change theta- and rho-axis ticks
+% obj1.polarAxs.ThetaAxis.MinorTickValues = []; % remove dotted tick-lines
+% thetaticks(0:90:360); % change major ticks
+% % rticks(0:4:20); % change rho-axis tick-steps
+% obj1.drawScale; % update scale bar
+
+%% localisation error RMSE
+addpath("polarPlot");
+DATASETNAME = ["20210803t1259d050m_cropped", ...
+    "20210803t1719d200m_cropped", ...
+    "20210803t1727d200m_cropped", ...
+    "20210803t1732d200m_cropped_W1", ...
+    "20210803t1248d050m_cropped_W2", ...
+    "20210803t1724d200m_cropped", ...
+    "20210803t1512d100m_cropped_W2", ...
+    "20210803t1732d200m_cropped_W2", ...
+    "20210803t1732d200m_cropped_W3", ...
+    "20210803t1732d200m_cropped_W4"];
+
+for idx = 1:numel(DATASETNAME)-1
+    load("final_labels/" + DATASETNAME(idx) + "/WaggleNet/" + DATASETNAME(idx) + "_event_det.mat")
+    load("final_labels/" + DATASETNAME(idx) + "/WaggleNet/" + DATASETNAME(idx) + "_event_gt.mat")
+    
+    tracked = event_det;
+    actual = event_gt;
+    numSample = numel(actual(:,1));
+    
+    findNeg = find(tracked(:,1)>-1);
+    
+    tracked_filtered = event_det(findNeg,1);
+    actual_filtered = event_gt(findNeg,1);
+    
+    RMSE = sqrt(mean((tracked_filtered - actual_filtered).^2))
+    
+end
+
+iPlot = 1;
+load("final_labels/" + DATASETNAME(iPlot) + "/WaggleNet/" + DATASETNAME(iPlot) + "_event_gt.mat")
+theta = 0:1:360;
+findNeg = find(event_gt(:,1)>-1);
+actual_filtered = event_gt(findNeg,1);
+th = double(actual_filtered);
+th_radians = deg2rad(th);
+% r = 2 + 2*cosd(theta);
+figure(1); clf
+ph = makePolarGrid(...
+  'ADir',         'ccw',...     % 'clockwise'/'ccw' or 'counterclockwise'/'ccw'
+  'AZeroPos',     'top',...     % initial 0deg position 'top',left','bottom','right'
+  'RTicks',       0:1:5,...     % Radial ticks (inner circles)
+  'RLabelFormat', '%.1f');      % Format for radial labels
+[px,py] = polgrid2cart(theta, th, ph);
+plot(px,py,'-','color','r','linewidth',2);  clear px py
+
+for iPlot = 1:numel(DATASETNAME)-1
+    subplot(3,3,iPlot)
+    load("final_labels/" + DATASETNAME(iPlot) + "/WaggleNet/" + DATASETNAME(iPlot) + "_event_gt.mat")
+    findNeg = find(event_gt(:,1)>-1);
+    actual_filtered = event_gt(findNeg,1);
+    th = double(actual_filtered);
+    r = 5*th/2;
+    th_radians = deg2rad(th);
+    polarscatter(th_radians,r);
+end
+
+%% first image of the paper
+bee1 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_ground_truth_bee1.mat');
+bee2 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_ground_truth_bee2.mat');
+bee3 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_ground_truth_bee3.mat');
+bee4 = load('final_labels/20210803t1732d200m_cropped_W4/WaggleNet/20210803t1732d200m_cropped_W4_ground_truth_bee4.mat');
+img = imread("/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/png/000000.png");
+
+figure(6786889);
+scatter3(bee1.td_gt.x,bee1.td_gt.frameID,bee1.td_gt.y,'.r');hold on
+scatter3(bee2.td_gt.x,bee2.td_gt.frameID,bee2.td_gt.y,'.b');
+bee1.td_gt.waggle(20:600)=0; %tail waggle
+scatter3(bee2.td_gt.x(bee1.td_gt.waggle>0),bee2.td_gt.frameID(bee1.td_gt.waggle>0),bee2.td_gt.y(bee1.td_gt.waggle>0),'.r');
+scatter3(bee2.td_gt.x(bee1.td_gt.waggle<1),bee2.td_gt.frameID(bee1.td_gt.waggle<1),bee2.td_gt.y(bee1.td_gt.waggle<1),'.g');
+scatter3(bee3.td_gt.x,bee3.td_gt.frameID,bee3.td_gt.y,'.g');
+scatter3(bee4.td_gt.x,bee4.td_gt.frameID,bee4.td_gt.y,'.m');
+
+figure(67867);
+plot(bee1.td_gt.frameID,bee1.td_gt.x,'.b');hold on
+plot(bee2.td_gt.frameID,bee2.td_gt.x,'.b');
+plot(bee3.td_gt.frameID,bee3.td_gt.x,'.b');
+plot(bee4.td_gt.frameID,bee4.td_gt.x,'.b');
+
+
+% figure(23534)
+% myIm=imread('/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/png/000000.png');
+% imsurf(myIm(:,:,1));
+% axis equal
+% colormap(gray)
+% 
+% myIm=imread('/home/sam/PhD/bee_waggle_run/20210803t1732d200m_cropped_W4/png/000000.png');
+% 
+% figure(6765678);
+% % imsurf(myIm(:,:,1),[],[-1  0 0],[0 -1 0],1);
+% % imsurf(myIm(:,:,1),[],[-1 -1 0],[1 -1 0],1);
+% imsurf(myIm(:,:,1),[],[0  10 0],[1  0 0],1);
+% % axis equal
+% view([-35 35]);
